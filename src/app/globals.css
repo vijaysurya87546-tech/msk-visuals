@@ -1,26 +1,571 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,400;1,500;1,600;1,700&family=Inter:wght@300;400;500;600;700;800&display=swap');
+
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* =============================================
+   MSK VISUALS - Premium Design System
+   Black & Gold Luxury Theme
+   ============================================= */
+
+@theme {
+  --color-gold: #D4A853;
+  --color-gold-light: #E8C97A;
+  --color-gold-dark: #B8922F;
+  --color-gold-metallic: #C5A355;
+  --color-black-deep: #0A0A0A;
+  --color-black-matte: #111111;
+  --color-black-card: #161616;
+  --color-black-elevated: #1A1A1A;
+  --color-dark-gray: #222222;
+  --color-medium-gray: #333333;
+  --color-light-gray: #888888;
+  --color-off-white: #F5F5F0;
+
+  --font-heading: 'Playfair Display', Georgia, serif;
+  --font-body: 'Inter', system-ui, sans-serif;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+/* =============================================
+   BASE STYLES
+   ============================================= */
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-gold-dark) var(--color-black-deep);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+*::-webkit-scrollbar {
+  width: 6px;
+}
+
+*::-webkit-scrollbar-track {
+  background: var(--color-black-deep);
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--color-gold-dark);
+  border-radius: 3px;
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-body);
+  background-color: var(--color-black-deep);
+  color: #e5e5e5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
+
+::selection {
+  background: var(--color-gold);
+  color: var(--color-black-deep);
+}
+
+/* =============================================
+   TYPOGRAPHY
+   ============================================= */
+
+.font-heading {
+  font-family: var(--font-heading);
+}
+
+.font-body {
+  font-family: var(--font-body);
+}
+
+.text-gold-gradient {
+  background: linear-gradient(135deg, #D4A853 0%, #E8C97A 40%, #D4A853 60%, #B8922F 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.text-gold-shimmer {
+  background: linear-gradient(90deg, #B8922F 0%, #E8C97A 25%, #D4A853 50%, #E8C97A 75%, #B8922F 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: shimmer 3s linear infinite;
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% center; }
+  100% { background-position: -200% center; }
+}
+
+/* =============================================
+   GOLD EFFECTS
+   ============================================= */
+
+.gold-border {
+  border: 1px solid rgba(212, 168, 83, 0.3);
+}
+
+.gold-border-hover:hover {
+  border-color: rgba(212, 168, 83, 0.6);
+}
+
+.gold-glow {
+  box-shadow: 0 0 20px rgba(212, 168, 83, 0.1);
+}
+
+.gold-glow-hover:hover {
+  box-shadow: 0 0 30px rgba(212, 168, 83, 0.2);
+}
+
+.gold-glow-strong {
+  box-shadow: 0 0 40px rgba(212, 168, 83, 0.15), 0 0 80px rgba(212, 168, 83, 0.05);
+}
+
+/* =============================================
+   CARD STYLES
+   ============================================= */
+
+.card-premium {
+  background: var(--color-black-card);
+  border: 1px solid rgba(212, 168, 83, 0.15);
+  border-radius: 8px;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.card-premium:hover {
+  border-color: rgba(212, 168, 83, 0.4);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 20px rgba(212, 168, 83, 0.1);
+  transform: translateY(-2px);
+}
+
+.card-elevated {
+  background: var(--color-black-elevated);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+}
+
+/* =============================================
+   BUTTON STYLES
+   ============================================= */
+
+.btn-gold {
+  background: linear-gradient(135deg, #D4A853 0%, #B8922F 100%);
+  color: #0A0A0A;
+  font-weight: 600;
+  padding: 12px 32px;
+  border-radius: 4px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  font-size: 0.85rem;
+  transition: all 0.3s ease;
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.btn-gold:hover {
+  background: linear-gradient(135deg, #E8C97A 0%, #D4A853 100%);
+  box-shadow: 0 4px 20px rgba(212, 168, 83, 0.3);
+  transform: translateY(-1px);
+}
+
+.btn-gold:active {
+  transform: translateY(0);
+}
+
+.btn-gold-outline {
+  background: transparent;
+  color: var(--color-gold);
+  font-weight: 600;
+  padding: 12px 32px;
+  border-radius: 4px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  font-size: 0.85rem;
+  transition: all 0.3s ease;
+  border: 1px solid var(--color-gold);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.btn-gold-outline:hover {
+  background: rgba(212, 168, 83, 0.1);
+  box-shadow: 0 0 20px rgba(212, 168, 83, 0.15);
+}
+
+.btn-whatsapp {
+  background: #25D366;
+  color: white;
+  font-weight: 600;
+  padding: 12px 32px;
+  border-radius: 4px;
+  letter-spacing: 0.02em;
+  font-size: 0.85rem;
+  transition: all 0.3s ease;
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.btn-whatsapp:hover {
+  background: #22c55e;
+  box-shadow: 0 4px 20px rgba(37, 211, 102, 0.3);
+  transform: translateY(-1px);
+}
+
+.btn-dark {
+  background: var(--color-black-card);
+  color: #e5e5e5;
+  font-weight: 500;
+  padding: 12px 32px;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  transition: all 0.3s ease;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.btn-dark:hover {
+  background: var(--color-dark-gray);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+/* =============================================
+   INPUT STYLES
+   ============================================= */
+
+.input-premium {
+  background: var(--color-black-elevated);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  padding: 12px 16px;
+  color: #e5e5e5;
+  font-size: 0.9rem;
+  transition: all 0.3s ease;
+  width: 100%;
+  outline: none;
+}
+
+.input-premium:focus {
+  border-color: var(--color-gold);
+  box-shadow: 0 0 0 2px rgba(212, 168, 83, 0.15);
+}
+
+.input-premium::placeholder {
+  color: #666;
+}
+
+.label-premium {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-gold);
+  margin-bottom: 6px;
+}
+
+/* =============================================
+   SECTION STYLES
+   ============================================= */
+
+.section-dark {
+  background: var(--color-black-deep);
+}
+
+.section-darker {
+  background: #080808;
+}
+
+.section-card {
+  background: var(--color-black-matte);
+}
+
+.section-heading {
+  font-family: var(--font-heading);
+  font-size: 2.5rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.section-subheading {
+  color: #999;
+  font-size: 1rem;
+  max-width: 600px;
+  margin: 0 auto;
+  line-height: 1.6;
+}
+
+/* =============================================
+   DIVIDER
+   ============================================= */
+
+.gold-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(212, 168, 83, 0.4), transparent);
+}
+
+.gold-divider-short {
+  width: 60px;
+  height: 2px;
+  background: linear-gradient(90deg, #B8922F, #D4A853, #E8C97A);
+  margin: 0 auto;
+}
+
+/* =============================================
+   BADGE
+   ============================================= */
+
+.badge-discount {
+  background: linear-gradient(135deg, #D4A853 0%, #B8922F 100%);
+  color: #0A0A0A;
+  font-weight: 700;
+  font-size: 0.7rem;
+  padding: 4px 10px;
+  border-radius: 3px;
+  letter-spacing: 0.03em;
+}
+
+.badge-status {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 4px 12px;
+  border-radius: 20px;
+  border: 1px solid;
+  letter-spacing: 0.02em;
+}
+
+/* =============================================
+   ANIMATIONS
+   ============================================= */
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.6s ease-out forwards;
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.5s ease-out forwards;
+}
+
+.animate-scale-in {
+  animation: scaleIn 0.4s ease-out forwards;
+}
+
+.animate-slide-down {
+  animation: slideDown 0.3s ease-out forwards;
+}
+
+/* Stagger delays */
+.delay-100 { animation-delay: 100ms; }
+.delay-200 { animation-delay: 200ms; }
+.delay-300 { animation-delay: 300ms; }
+.delay-400 { animation-delay: 400ms; }
+.delay-500 { animation-delay: 500ms; }
+
+/* =============================================
+   HERO SECTION
+   ============================================= */
+
+.hero-gradient {
+  background: radial-gradient(ellipse at center top, rgba(212, 168, 83, 0.08) 0%, transparent 60%),
+              radial-gradient(ellipse at center bottom, rgba(212, 168, 83, 0.04) 0%, transparent 50%),
+              var(--color-black-deep);
+}
+
+/* =============================================
+   LOADING
+   ============================================= */
+
+.loading-gold {
+  border: 2px solid rgba(212, 168, 83, 0.2);
+  border-top-color: var(--color-gold);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* =============================================
+   RESPONSIVE UTILITIES
+   ============================================= */
+
+@media (max-width: 768px) {
+  .section-heading {
+    font-size: 1.75rem;
+  }
+
+  .btn-gold,
+  .btn-gold-outline,
+  .btn-whatsapp,
+  .btn-dark {
+    padding: 10px 24px;
+    font-size: 0.8rem;
+  }
+}
+
+/* =============================================
+   PRINT STYLES
+   ============================================= */
+
+@media print {
+  body {
+    background: white;
+    color: black;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+}
+
+/* =============================================
+   OVERLAY
+   ============================================= */
+
+.overlay-dark {
+  background: linear-gradient(180deg, rgba(10, 10, 10, 0.7) 0%, rgba(10, 10, 10, 0.9) 100%);
+}
+
+/* =============================================
+   PRODUCT IMAGE ZOOM
+   ============================================= */
+
+.img-zoom {
+  transition: transform 0.5s ease;
+}
+
+.img-zoom:hover {
+  transform: scale(1.05);
+}
+
+/* =============================================
+   TOAST / NOTIFICATION
+   ============================================= */
+
+.toast-gold {
+  background: var(--color-black-card);
+  border: 1px solid rgba(212, 168, 83, 0.3);
+  color: #e5e5e5;
+  border-radius: 8px;
+  padding: 16px 20px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+/* =============================================
+   MSK VISUALS - WELCOME / LAUNCHING ANIMATIONS
+   ============================================= */
+
+@keyframes buttonShimmerSweep {
+  0% {
+    transform: translateX(-150%) skewX(-20deg);
+  }
+  35%, 100% {
+    transform: translateX(250%) skewX(-20deg);
+  }
+}
+
+@keyframes fadeInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+
+@keyframes spinUltraSlow {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes pulseSlow {
+  0%, 100% {
+    opacity: 0.25;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(1.08);
+  }
+}
+
+.animate-spin-ultra-slow {
+  animation: spinUltraSlow 28s linear infinite;
+}
+
+.animate-pulse-slow {
+  animation: pulseSlow 4s ease-in-out infinite;
+}
+
+/* Accessibility: Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+  .animate-spin-ultra-slow,
+  .animate-pulse-slow {
+    animation: none !important;
+  }
+}
+
