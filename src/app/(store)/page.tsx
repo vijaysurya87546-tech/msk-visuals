@@ -270,7 +270,7 @@ export default function HomePage() {
             {SERVICES.map((service, i) => (
               <Link
                 key={service.title}
-                href={`/shop?category=${service.slug}`}
+                href={service.slug === 'photo-frames' ? '/photo-frames' : `/shop?category=${service.slug}`}
                 className="card-premium p-6 text-center group"
                 style={{ animationDelay: `${i * 100}ms` }}
               >
@@ -324,60 +324,6 @@ export default function HomePage() {
                 </div>
               </div>
             ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ===== POPULAR SIZES / PRICES ===== */}
-      <section className="py-20 section-darker">
-        <div className="max-w-7xl mx-auto px-4 md:px-6">
-          <div className="text-center mb-14">
-            <p className="text-gold text-xs tracking-[0.3em] uppercase mb-3 font-medium">
-              Frame Sizes
-            </p>
-            <h2 className="section-heading text-gold-gradient">
-              Popular Frame Sizes
-            </h2>
-            <div className="gold-divider-short mt-5 mb-4" />
-            <p className="section-subheading">
-              Choose from our wide range of premium frame sizes.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-            {(prices.length > 0
-              ? prices
-              : [
-                  { id: '1', size_label: '4 x 4', price: 100 },
-                  { id: '2', size_label: '6 x 4', price: 150 },
-                  { id: '3', size_label: '5 x 7', price: 200 },
-                  { id: '4', size_label: '10 x 8', price: 400 },
-                  { id: '5', size_label: '12 x 10', price: 600 },
-                  { id: '6', size_label: '12 x 18', price: 800 },
-                  { id: '7', size_label: '24 x 20', price: 1500 },
-                  { id: '8', size_label: '30 x 40', price: 4500 },
-                ]
-            ).map((item) => (
-              <div
-                key={item.id}
-                className="card-premium p-5 text-center"
-              >
-                <div className="text-gold font-heading text-lg font-bold">
-                  {item.size_label}
-                </div>
-                <div className="text-xs text-gray-500 mb-2">inches</div>
-                <div className="text-white font-semibold text-lg">
-                  {formatPrice(item.price)}
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="text-center mt-10">
-            <Link href="/price-list" className="btn-gold-outline">
-              View Full Price List
-              <ArrowRight size={16} />
-            </Link>
           </div>
         </div>
       </section>
