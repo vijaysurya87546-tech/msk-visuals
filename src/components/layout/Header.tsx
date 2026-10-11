@@ -30,6 +30,7 @@ const navLinks = [
       { label: 'Resin Art', href: '/shop?category=resin-art' },
       { label: 'DIY Candles', href: '/shop?category=diy-candles' },
       { label: 'Logo Design', href: '/shop?category=logo-design' },
+      { label: 'Gifts', href: '/gifts' },
     ],
   },
   { label: 'Price List', href: '/price-list' },

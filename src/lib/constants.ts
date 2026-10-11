@@ -77,6 +77,12 @@ export const SERVICES = [
     icon: 'PenTool',
     slug: 'logo-design',
   },
+  {
+    title: 'Gifts',
+    description: 'Personalized gifts for every occasion — custom pillows, LED novelties, keychains, caricatures & more.',
+    icon: 'Gift',
+    slug: 'gifts',
+  },
 ] as const;
 
 export const WHY_CHOOSE_US = [

@@ -15,6 +15,7 @@ import {
   Gem,
   Flame,
   PenTool,
+  Gift,
   Award,
   Palette,
   ChevronRight,
@@ -36,6 +37,7 @@ const iconMap: Record<string, React.ReactNode> = {
   Gem: <Gem size={28} />,
   Flame: <Flame size={28} />,
   PenTool: <PenTool size={28} />,
+  Gift: <Gift size={28} />,
   Award: <Award size={22} />,
   Palette: <Palette size={22} />,
   Package: <Package size={22} />,
@@ -266,11 +268,17 @@ export default function HomePage() {
             <div className="gold-divider-short mt-5 mb-4" />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
             {SERVICES.map((service, i) => (
               <Link
                 key={service.title}
-                href={service.slug === 'photo-frames' ? '/photo-frames' : `/shop?category=${service.slug}`}
+                href={
+                  service.slug === 'photo-frames'
+                    ? '/photo-frames'
+                    : service.slug === 'gifts'
+                    ? '/gifts'
+                    : `/shop?category=${service.slug}`
+                }
                 className="card-premium p-6 text-center group"
                 style={{ animationDelay: `${i * 100}ms` }}
               >
