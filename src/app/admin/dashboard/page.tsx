@@ -213,8 +213,10 @@ export default function AdminDashboardPage() {
     loadData();
   }, []);
 
-  const handleAdminLogout = () => {
-    document.cookie = 'msk_admin_session=; path=/; max-age=0';
+  const handleAdminLogout = async () => {
+    try {
+      await fetch('/api/admin-auth', { method: 'DELETE' });
+    } catch (_) {}
     router.push('/admin/login');
   };
 

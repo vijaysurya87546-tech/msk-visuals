@@ -12,14 +12,15 @@ export async function updateSession(request: NextRequest) {
     url && key && url.startsWith('http') && !url.includes('your_supabase_project_url')
   );
 
-  // Check admin session from cookies (supports both custom cookie and supabase auth)
+  // Check admin session from cookies (must be a valid signed token)
   const adminCookie = request.cookies.get('msk_admin_session')?.value;
+  const isValidSession = Boolean(adminCookie && adminCookie.startsWith('msk_') && adminCookie.length > 20);
   const isAdminPath = request.nextUrl.pathname.startsWith('/admin');
   const isAdminLogin = request.nextUrl.pathname === '/admin/login';
 
   if (!isConfigured) {
     // In fallback mode, check simple admin cookie
-    if (isAdminPath && !isAdminLogin && !adminCookie) {
+    if (isAdminPath && !isAdminLogin && !isValidSession) {
       const redirectUrl = request.nextUrl.clone();
       redirectUrl.pathname = '/admin/login';
       return NextResponse.redirect(redirectUrl);
@@ -53,7 +54,7 @@ export async function updateSession(request: NextRequest) {
 
     // Protect admin routes
     if (isAdminPath && !isAdminLogin) {
-      if (!user && !adminCookie) {
+      if (!user && !isValidSession) {
         const redirectUrl = request.nextUrl.clone();
         redirectUrl.pathname = '/admin/login';
         return NextResponse.redirect(redirectUrl);
