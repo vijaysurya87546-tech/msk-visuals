@@ -94,11 +94,29 @@ export default function ProductDetailPage() {
         return;
       }
       setUploadedFileName(file.name);
+
+      // Instant local preview
       const reader = new FileReader();
       reader.onloadend = () => {
         setUploadedImagePreview(reader.result as string);
       };
       reader.readAsDataURL(file);
+
+      // Upload to permanent Supabase customer-uploads bucket
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('bucket', 'customer-uploads');
+      fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          if (data?.url) {
+            setUploadedImagePreview(data.url);
+          }
+        })
+        .catch((err) => console.warn('Background image upload notice:', err));
     }
   };
 

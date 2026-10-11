@@ -73,7 +73,32 @@ export default function AdminDashboardPage() {
   const [editingPriceItem, setEditingPriceItem] = useState<PriceListItem | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [previewModalImg, setPreviewModalImg] = useState<{ url: string; title: string } | null>(null);
+  const [downloadingUrl, setDownloadingUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Direct high-res photo download helper
+  const handleDownloadPic = async (url: string, filename?: string) => {
+    try {
+      setDownloadingUrl(url);
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('Download failed');
+      const blob = await res.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = filename || 'downloaded-pic.jpg';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => window.URL.revokeObjectURL(blobUrl), 1000);
+    } catch (err) {
+      console.warn('Direct blob download failed, falling back to window.open:', err);
+      window.open(url, '_blank');
+    } finally {
+      setDownloadingUrl(null);
+    }
+  };
 
   // Settings state
   const [siteSettings, setSiteSettings] = useState<Record<string, any>>({
@@ -1015,31 +1040,53 @@ export default function AdminDashboardPage() {
                             key={file.id || fIdx}
                             className="flex items-center justify-between gap-3 p-2.5 bg-[#141414] rounded-lg border border-white/10"
                           >
-                            <div className="flex items-center gap-2.5 overflow-hidden">
-                              <img
-                                src={file.file_url}
-                                alt={file.file_name || 'Custom upload'}
-                                className="w-12 h-12 object-cover rounded border border-gold/40 flex-shrink-0"
-                              />
+                            <div
+                              className="flex items-center gap-2.5 overflow-hidden cursor-pointer group flex-1"
+                              onClick={() => setPreviewModalImg({ url: file.file_url, title: file.file_name || `Custom Order #${cust.custom_order_id}` })}
+                            >
+                              <div className="relative w-12 h-12 flex-shrink-0 rounded overflow-hidden border border-gold/40 bg-black">
+                                <img
+                                  src={file.file_url}
+                                  alt={file.file_name || 'Custom upload'}
+                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                                />
+                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                  <Eye size={14} className="text-gold" />
+                                </div>
+                              </div>
                               <div className="truncate text-xs">
-                                <div className="text-white truncate font-medium">
+                                <div className="text-white truncate font-medium group-hover:text-gold transition-colors">
                                   {file.file_name || 'Customer Image'}
                                 </div>
                                 <div className="text-gray-400 text-[10px] capitalize">
-                                  {file.file_type?.replace('_', ' ') || 'Photo'}
+                                  {file.file_type?.replace('_', ' ') || 'Photo'} • Click to preview
                                 </div>
                               </div>
                             </div>
-                            <a
-                              href={file.file_url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              download={file.file_name || `custom-order-${cust.custom_order_id}.jpg`}
-                              className="btn-gold !py-1.5 !px-3 text-xs flex items-center gap-1.5 flex-shrink-0 shadow-md"
-                            >
-                              <Download size={13} />
-                              Download Pic
-                            </a>
+                            <div className="flex items-center gap-1.5 flex-shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => setPreviewModalImg({ url: file.file_url, title: file.file_name || `Custom Order #${cust.custom_order_id}` })}
+                                className="px-2 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded text-xs flex items-center gap-1 transition-colors"
+                                title="Preview Photo"
+                              >
+                                <Eye size={12} />
+                                View
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDownloadPic(file.file_url, file.file_name || `custom-order-${cust.custom_order_id}.jpg`)}
+                                disabled={downloadingUrl === file.file_url}
+                                className="btn-gold !py-1.5 !px-3 text-xs flex items-center gap-1.5 shadow-md disabled:opacity-50"
+                              >
+                                {downloadingUrl === file.file_url ? (
+                                  <RefreshCw size={12} className="animate-spin" />
+                                ) : (
+                                  <Download size={12} />
+                                )}
+                                Download Pic
+                              </button>
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -1234,27 +1281,48 @@ export default function AdminDashboardPage() {
                   {/* Uploaded Customer Photo in Order Modal */}
                   {it.uploaded_image_url && (
                     <div className="pt-2 border-t border-white/5 flex items-center justify-between gap-3 bg-black/60 p-2.5 rounded border border-gold/30">
-                      <div className="flex items-center gap-2.5">
-                        <img
-                          src={it.uploaded_image_url}
-                          alt="Customer uploaded photo"
-                          className="w-12 h-12 object-cover rounded border border-gold/40 flex-shrink-0"
-                        />
-                        <div>
-                          <div className="text-white font-medium text-xs">Customer Photo Attached</div>
-                          <div className="text-gray-400 text-[10px]">Ready for framing & printing</div>
+                      <div
+                        className="flex items-center gap-2.5 cursor-pointer group flex-1 overflow-hidden"
+                        onClick={() => setPreviewModalImg({ url: it.uploaded_image_url, title: `${it.product_name} - Customer Photo` })}
+                      >
+                        <div className="relative w-12 h-12 flex-shrink-0 rounded overflow-hidden border border-gold/40 bg-black">
+                          <img
+                            src={it.uploaded_image_url}
+                            alt="Customer uploaded photo"
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                          />
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                            <Eye size={14} className="text-gold" />
+                          </div>
+                        </div>
+                        <div className="truncate">
+                          <div className="text-white font-medium text-xs group-hover:text-gold transition-colors truncate">Customer Photo Attached</div>
+                          <div className="text-gray-400 text-[10px]">Click thumbnail to preview</div>
                         </div>
                       </div>
-                      <a
-                        href={it.uploaded_image_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        download={`order-photo-${selectedOrder.order_id}-${i + 1}.jpg`}
-                        className="btn-gold !py-1 !px-2.5 text-xs flex items-center gap-1 shadow-md flex-shrink-0"
-                      >
-                        <Download size={12} />
-                        Download Pic
-                      </a>
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => setPreviewModalImg({ url: it.uploaded_image_url, title: `${it.product_name} - Customer Photo` })}
+                          className="px-2 py-1 bg-white/10 hover:bg-white/20 text-white rounded text-xs flex items-center gap-1 transition-colors"
+                        >
+                          <Eye size={12} />
+                          View
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDownloadPic(it.uploaded_image_url, `order-${selectedOrder.order_id}-item-${i + 1}.jpg`)}
+                          disabled={downloadingUrl === it.uploaded_image_url}
+                          className="btn-gold !py-1 !px-2.5 text-xs flex items-center gap-1 shadow-md disabled:opacity-50"
+                        >
+                          {downloadingUrl === it.uploaded_image_url ? (
+                            <RefreshCw size={11} className="animate-spin" />
+                          ) : (
+                            <Download size={11} />
+                          )}
+                          Download Pic
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -1550,6 +1618,81 @@ export default function AdminDashboardPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ================= HIGH-RES IMAGE PREVIEW / LIGHTBOX MODAL ================= */}
+      {previewModalImg && (
+        <div 
+          className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-3 sm:p-6"
+          onClick={() => setPreviewModalImg(null)}
+        >
+          <div 
+            className="relative max-w-4xl w-full bg-[#141414] border border-gold/40 rounded-xl overflow-hidden shadow-2xl p-4 sm:p-5 space-y-3"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-white/10 pb-3">
+              <div className="truncate pr-4">
+                <h3 className="font-heading font-bold text-white text-sm sm:text-base truncate">
+                  {previewModalImg.title}
+                </h3>
+                <p className="text-gray-400 text-xs mt-0.5">High-Resolution Customer Artwork / Photo</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPreviewModalImg(null)}
+                className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
+                title="Close"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Image Preview Container */}
+            <div className="relative bg-black rounded-lg overflow-hidden border border-white/10 max-h-[65vh] flex items-center justify-center p-2">
+              <img
+                src={previewModalImg.url}
+                alt={previewModalImg.title}
+                className="max-h-[60vh] max-w-full object-contain rounded"
+              />
+            </div>
+
+            {/* Modal Actions */}
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+              <a
+                href={previewModalImg.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-gold hover:underline flex items-center gap-1"
+              >
+                <ArrowUpRight size={13} />
+                Open original in new tab
+              </a>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPreviewModalImg(null)}
+                  className="px-3.5 py-1.5 rounded bg-white/10 hover:bg-white/15 text-white text-xs font-semibold transition-colors"
+                >
+                  Close
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDownloadPic(previewModalImg.url, `${previewModalImg.title.replace(/[^a-zA-Z0-9.-]/g, '_')}.jpg`)}
+                  disabled={downloadingUrl === previewModalImg.url}
+                  className="btn-gold !py-1.5 !px-3.5 text-xs flex items-center gap-1.5 shadow-md disabled:opacity-50"
+                >
+                  {downloadingUrl === previewModalImg.url ? (
+                    <RefreshCw size={12} className="animate-spin" />
+                  ) : (
+                    <Download size={12} />
+                  )}
+                  Download Pic
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

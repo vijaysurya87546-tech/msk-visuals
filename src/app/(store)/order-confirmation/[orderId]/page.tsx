@@ -14,6 +14,10 @@ import {
   Phone,
   Mail,
   MapPin,
+  Eye,
+  X,
+  RefreshCw,
+  ArrowUpRight,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { formatPrice, generateWhatsAppUrl } from '@/lib/utils';
@@ -28,6 +32,31 @@ export default function OrderConfirmationPage() {
 
   const [order, setOrder] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [previewModalImg, setPreviewModalImg] = useState<{ url: string; title: string } | null>(null);
+  const [downloadingUrl, setDownloadingUrl] = useState<string | null>(null);
+
+  // Direct high-res photo download helper
+  const handleDownloadPic = async (url: string, filename?: string) => {
+    try {
+      setDownloadingUrl(url);
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('Download failed');
+      const blob = await res.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = filename || 'custom-photo.jpg';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => window.URL.revokeObjectURL(blobUrl), 1000);
+    } catch (err) {
+      console.warn('Direct blob download failed, falling back to window.open:', err);
+      window.open(url, '_blank');
+    } finally {
+      setDownloadingUrl(null);
+    }
+  };
 
   useEffect(() => {
     async function loadOrder() {
@@ -316,33 +345,52 @@ export default function OrderConfirmationPage() {
                 {/* Uploaded Custom Photo & Download Button */}
                 {item.uploaded_image_url && (
                   <div className="pt-3 border-t border-white/5 flex flex-wrap items-center justify-between gap-3 bg-black/60 p-3 rounded-lg border border-gold/20">
-                    <div className="flex items-center gap-3">
-                      <img
-                        src={item.uploaded_image_url}
-                        alt="Customer uploaded photo"
-                        className="w-14 h-14 object-cover rounded border border-gold/40 shadow-sm"
-                      />
+                    <div 
+                      className="flex items-center gap-3 cursor-pointer group flex-1"
+                      onClick={() => setPreviewModalImg({ url: item.uploaded_image_url, title: `${item.product_name} - Uploaded Photo` })}
+                    >
+                      <div className="relative w-14 h-14 rounded overflow-hidden border border-gold/40 shadow-sm flex-shrink-0 bg-black">
+                        <img
+                          src={item.uploaded_image_url}
+                          alt="Customer uploaded photo"
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                        />
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                          <Eye size={16} className="text-gold" />
+                        </div>
+                      </div>
                       <div>
-                        <div className="text-white font-semibold text-xs flex items-center gap-1">
+                        <div className="text-white font-semibold text-xs flex items-center gap-1 group-hover:text-gold transition-colors">
                           <CheckCircle2 size={13} className="text-green-400" />
                           Custom Photo Attached
                         </div>
                         <div className="text-gray-400 text-[11px] mt-0.5">
-                          High-resolution image ready for printing & framing
+                          High-resolution • Click thumbnail to preview
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <a
-                        href={item.uploaded_image_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        download={`photo-${order.order_id}-${i + 1}.jpg`}
-                        className="btn-gold !py-1.5 !px-3.5 text-xs flex items-center gap-1.5 shadow-md"
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => setPreviewModalImg({ url: item.uploaded_image_url, title: `${item.product_name} - Uploaded Photo` })}
+                        className="px-2.5 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded text-xs flex items-center gap-1 transition-colors"
                       >
-                        <Download size={13} />
+                        <Eye size={12} />
+                        View
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDownloadPic(item.uploaded_image_url, `order-${order.order_id}-photo-${i + 1}.jpg`)}
+                        disabled={downloadingUrl === item.uploaded_image_url}
+                        className="btn-gold !py-1.5 !px-3.5 text-xs flex items-center gap-1.5 shadow-md disabled:opacity-50"
+                      >
+                        {downloadingUrl === item.uploaded_image_url ? (
+                          <RefreshCw size={12} className="animate-spin" />
+                        ) : (
+                          <Download size={12} />
+                        )}
                         Download Pic
-                      </a>
+                      </button>
                     </div>
                   </div>
                 )}
@@ -399,6 +447,81 @@ export default function OrderConfirmationPage() {
           </Link>
         </div>
       </div>
+
+      {/* ================= HIGH-RES IMAGE PREVIEW / LIGHTBOX MODAL ================= */}
+      {previewModalImg && (
+        <div 
+          className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-3 sm:p-6"
+          onClick={() => setPreviewModalImg(null)}
+        >
+          <div 
+            className="relative max-w-4xl w-full bg-[#141414] border border-gold/40 rounded-xl overflow-hidden shadow-2xl p-4 sm:p-5 space-y-3"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-white/10 pb-3">
+              <div className="truncate pr-4">
+                <h3 className="font-heading font-bold text-white text-sm sm:text-base truncate">
+                  {previewModalImg.title}
+                </h3>
+                <p className="text-gray-400 text-xs mt-0.5">High-Resolution Uploaded Photo</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPreviewModalImg(null)}
+                className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
+                title="Close"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Image Preview Container */}
+            <div className="relative bg-black rounded-lg overflow-hidden border border-white/10 max-h-[65vh] flex items-center justify-center p-2">
+              <img
+                src={previewModalImg.url}
+                alt={previewModalImg.title}
+                className="max-h-[60vh] max-w-full object-contain rounded"
+              />
+            </div>
+
+            {/* Modal Actions */}
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+              <a
+                href={previewModalImg.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-gold hover:underline flex items-center gap-1"
+              >
+                <ArrowUpRight size={13} />
+                Open original in new tab
+              </a>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPreviewModalImg(null)}
+                  className="px-3.5 py-1.5 rounded bg-white/10 hover:bg-white/15 text-white text-xs font-semibold transition-colors"
+                >
+                  Close
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDownloadPic(previewModalImg.url, `${previewModalImg.title.replace(/[^a-zA-Z0-9.-]/g, '_')}.jpg`)}
+                  disabled={downloadingUrl === previewModalImg.url}
+                  className="btn-gold !py-1.5 !px-3.5 text-xs flex items-center gap-1.5 shadow-md disabled:opacity-50"
+                >
+                  {downloadingUrl === previewModalImg.url ? (
+                    <RefreshCw size={12} className="animate-spin" />
+                  ) : (
+                    <Download size={12} />
+                  )}
+                  Download Pic
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

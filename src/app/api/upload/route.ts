@@ -23,6 +23,20 @@ export async function POST(req: NextRequest) {
     // 1. Try uploading to Supabase Storage first
     try {
       const supabase = await createAdminClient();
+
+      // Ensure bucket exists and is public so images can be downloaded/viewed directly
+      try {
+        const { data: bucketData } = await supabase.storage.getBucket(bucket);
+        if (!bucketData) {
+          await supabase.storage.createBucket(bucket, { public: true });
+        } else if (!bucketData.public) {
+          await supabase.storage.updateBucket(bucket, { public: true });
+        }
+      } catch (bErr) {
+        // Non-blocking bucket check
+        console.warn('Bucket ensure error:', bErr);
+      }
+
       const { data, error } = await supabase.storage
         .from(bucket)
         .upload(uniqueFileName, buffer, {
