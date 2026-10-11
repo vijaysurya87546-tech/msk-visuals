@@ -2,14 +2,15 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "MSK VISUALS | Photo Frames, Printing, Resin Art & Creative Designs",
+  title: "MSK VISUALS | Photo Frames, Flex, Resin Art & Creative Designs",
   description:
-    "MSK VISUALS offers premium photo frames, high-quality printing, resin art, DIY candles and logo design services in Madurai with delivery across Tamil Nadu.",
+    "MSK VISUALS offers premium photo frames, high-quality flex printing, resin art, DIY candles and logo design services in Madurai with delivery across Tamil Nadu.",
   keywords: [
     "MSK VISUALS",
     "photo frames",
     "custom frames",
-    "printing",
+    "flex",
+    "flex printing",
     "resin art",
     "DIY candles",
     "logo design",
@@ -20,9 +21,9 @@ export const metadata: Metadata = {
   ],
   authors: [{ name: "MSK VISUALS" }],
   openGraph: {
-    title: "MSK VISUALS | Photo Frames, Printing, Resin Art & Creative Designs",
+    title: "MSK VISUALS | Photo Frames, Flex, Resin Art & Creative Designs",
     description:
-      "MSK VISUALS offers premium photo frames, high-quality printing, resin art, DIY candles and logo design services in Madurai with delivery across Tamil Nadu.",
+      "MSK VISUALS offers premium photo frames, high-quality flex printing, resin art, DIY candles and logo design services in Madurai with delivery across Tamil Nadu.",
     url: process.env.NEXT_PUBLIC_SITE_URL || "https://mskvisuals.com",
     siteName: "MSK VISUALS",
     locale: "en_IN",
@@ -30,9 +31,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "MSK VISUALS | Photo Frames, Printing, Resin Art & Creative Designs",
+    title: "MSK VISUALS | Photo Frames, Flex, Resin Art & Creative Designs",
     description:
-      "MSK VISUALS offers premium photo frames, high-quality printing, resin art, DIY candles and logo design services in Madurai with delivery across Tamil Nadu.",
+      "MSK VISUALS offers premium photo frames, high-quality flex printing, resin art, DIY candles and logo design services in Madurai with delivery across Tamil Nadu.",
   },
   robots: {
     index: true,

@@ -54,10 +54,10 @@ export const SERVICES = [
     slug: 'photo-frames',
   },
   {
-    title: 'Printing',
-    description: 'High-quality printing services with vibrant colors and sharp details that bring your photos to life.',
+    title: 'Flex',
+    description: 'High-quality flex printing services with vibrant colors and sharp details that bring your visuals to life.',
     icon: 'Printer',
-    slug: 'printing',
+    slug: 'flex',
   },
   {
     title: 'Resin Art',

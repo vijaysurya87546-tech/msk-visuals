@@ -26,7 +26,7 @@ const navLinks = [
     href: '#',
     children: [
       { label: 'Photo Frames', href: '/shop?category=photo-frames' },
-      { label: 'Printing', href: '/shop?category=printing' },
+      { label: 'Flex', href: '/shop?category=flex' },
       { label: 'Resin Art', href: '/shop?category=resin-art' },
       { label: 'DIY Candles', href: '/shop?category=diy-candles' },
       { label: 'Logo Design', href: '/shop?category=logo-design' },

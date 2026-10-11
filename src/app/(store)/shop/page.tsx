@@ -22,7 +22,8 @@ import type { Product, Category } from '@/lib/types';
 
 function ShopContent() {
   const searchParams = useSearchParams();
-  const initialCategory = searchParams.get('category') || 'all';
+  const categoryParam = searchParams.get('category');
+  const initialCategory = categoryParam === 'printing' ? 'flex' : categoryParam || 'all';
   const initialSearch = searchParams.get('search') || '';
 
   const [products, setProducts] = useState<Product[]>([]);

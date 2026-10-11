@@ -107,9 +107,9 @@ export const INITIAL_CATEGORIES: Category[] = [
   },
   {
     id: 'cat-9',
-    name: 'Printing',
-    slug: 'printing',
-    description: 'HD Canvas, vinyl, acrylic & luster photo printing',
+    name: 'Flex',
+    slug: 'flex',
+    description: 'High-quality flex banners, vinyl, hoardings & display printing',
     image_url: 'https://images.unsplash.com/photo-1562654501-a0ccc0fc3fb1?auto=format&fit=crop&w=600&q=80',
     icon: 'Printer',
     parent_id: null,

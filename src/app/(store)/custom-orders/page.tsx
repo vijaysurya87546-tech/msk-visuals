@@ -270,7 +270,7 @@ function CustomOrderContent() {
                   <option value="Photo Frames">Photo Frames</option>
                   <option value="Resin Art">Resin Art</option>
                   <option value="DIY Candles">DIY Candles</option>
-                  <option value="Printing">Printing</option>
+                  <option value="Flex">Flex</option>
                   <option value="Logo Design">Logo Design</option>
                   <option value="Customized Creative Products">Customized Creative Products</option>
                 </select>

@@ -84,7 +84,7 @@ export default function AboutPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 text-sm">
           {[
             { title: 'Photo Frames', desc: 'Custom portrait, collage, wedding & spiritual frames made to any custom size.' },
-            { title: 'Printing', desc: 'Giclée archival canvas wraps, fine-art photographic paper, and commercial printing.' },
+            { title: 'Flex', desc: 'Commercial flex printing, banners, hoardings, giclée archival canvas wraps, and fine-art paper.' },
             { title: 'Resin Art', desc: 'Hand-poured ocean waves, geode clocks, personalized keychains, and floral coaster sets.' },
             { title: 'DIY Candles', desc: '100% soy wax candles crafted with therapeutic essential aromatherapy oils.' },
             { title: 'Logo Design', desc: 'Vector logos, wolf emblems, brand identity systems, and corporate stationary.' },
