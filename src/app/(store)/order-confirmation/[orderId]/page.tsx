@@ -43,47 +43,45 @@ export default function OrderConfirmationPage() {
         }
       }
 
-      // 2. Fetch from Supabase
+      // 2. Fetch from Orders API (server-side authenticated)
       try {
-        const supabase = createClient();
-        const { data, error } = await supabase
-          .from('orders')
-          .select('*, items:order_items(*)')
-          .eq('order_id', orderId)
-          .maybeSingle();
-
-        if (data) {
-          setOrder(data);
-        } else {
-          // Fallback order display
-          setOrder({
-            order_id: orderId,
-            customer_name: 'Valued Customer',
-            customer_phone: '+91 93612 53338',
-            customer_email: 'meganathan2174@gmail.com',
-            address_line1: 'Tamil Nadu, India',
-            city: 'Madurai',
-            pincode: '625001',
-            subtotal: 800,
-            delivery_charge: 0,
-            total: 800,
-            status: 'Pending',
-            created_at: new Date().toISOString(),
-            items: [
-              {
-                product_name: 'Custom Luxury Photo Frame',
-                size: '12 x 18',
-                quantity: 1,
-                price: 800,
-              },
-            ],
-          });
+        const res = await fetch(`/api/orders?order_id=${orderId}`);
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && json.order) {
+            setOrder(json.order);
+            setLoading(false);
+            return;
+          }
         }
       } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
+        console.error('Failed to fetch order via API:', err);
       }
+
+      // Fallback order display
+      setOrder({
+        order_id: orderId,
+        customer_name: 'Valued Customer',
+        customer_phone: '+91 93612 53338',
+        customer_email: 'meganathan2174@gmail.com',
+        address_line1: 'Tamil Nadu, India',
+        city: 'Madurai',
+        pincode: '625001',
+        subtotal: 800,
+        delivery_charge: 0,
+        total: 800,
+        status: 'Pending',
+        created_at: new Date().toISOString(),
+        items: [
+          {
+            product_name: 'Custom Luxury Photo Frame',
+            size: '12 x 18',
+            quantity: 1,
+            price: 800,
+          },
+        ],
+      });
+      setLoading(false);
     }
 
     if (orderId) loadOrder();

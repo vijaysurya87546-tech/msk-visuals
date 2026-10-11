@@ -91,6 +91,27 @@ export default function AdminDashboardPage() {
   useEffect(() => {
     async function loadData() {
       try {
+        const res = await fetch('/api/admin/data');
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && json.data) {
+            const { products, categories, priceList, orders, customOrders, reviews, messages } = json.data;
+            setProducts(products && products.length > 0 ? products : INITIAL_PRODUCTS);
+            setCategories(categories && categories.length > 0 ? categories : INITIAL_CATEGORIES);
+            setPriceList(priceList && priceList.length > 0 ? priceList : INITIAL_PRICE_LIST);
+            setReviews(reviews && reviews.length > 0 ? reviews : INITIAL_REVIEWS);
+            setOrders(orders && orders.length > 0 ? orders : []);
+            setCustomOrders(customOrders && customOrders.length > 0 ? customOrders : []);
+            setMessages(messages && messages.length > 0 ? messages : []);
+            setLoading(false);
+            return;
+          }
+        } else if (res.status === 401) {
+          router.push('/admin/login');
+          return;
+        }
+
+        // Fallback if API fails
         const supabase = createClient();
         const [prodRes, catRes, priceRes, ordRes, custOrdRes, revRes, msgRes] = await Promise.all([
           supabase.from('products').select('*, images:product_images(*), sizes:product_sizes(*)').order('sort_order'),
@@ -106,112 +127,18 @@ export default function AdminDashboardPage() {
         setCategories(catRes.data && catRes.data.length > 0 ? catRes.data : INITIAL_CATEGORIES);
         setPriceList(priceRes.data && priceRes.data.length > 0 ? priceRes.data : INITIAL_PRICE_LIST);
         setReviews(revRes.data && revRes.data.length > 0 ? revRes.data : INITIAL_REVIEWS);
-
-        if (ordRes.data && ordRes.data.length > 0) {
-          setOrders(ordRes.data);
-        } else {
-          // Mock order records
-          setOrders([
-            {
-              id: 'ord-1',
-              order_id: 'MSK-ORD-2026-0001',
-              customer_name: 'Karthik Ramachandran',
-              customer_phone: '+91 93612 53338',
-              customer_email: 'karthik@gmail.com',
-              city: 'Madurai',
-              district: 'Madurai',
-              subtotal: 800,
-              delivery_charge: 0,
-              total: 800,
-              status: 'Designing',
-              created_at: new Date(Date.now() - 3600000 * 4).toISOString(),
-              items: [
-                { product_name: 'Luxury Wedding Collage Frame', size: '12 x 18', quantity: 1, price: 800 },
-              ],
-            },
-            {
-              id: 'ord-2',
-              order_id: 'MSK-ORD-2026-0002',
-              customer_name: 'Deepa V.',
-              customer_phone: '+91 93612 53338',
-              customer_email: 'deepa@gmail.com',
-              city: 'Chennai',
-              district: 'Chennai',
-              subtotal: 1500,
-              delivery_charge: 0,
-              total: 1500,
-              status: 'Printing',
-              created_at: new Date(Date.now() - 3600000 * 20).toISOString(),
-              items: [
-                { product_name: 'Ocean Wave Resin Art Wall Geode', size: '12 x 12 inch round', quantity: 1, price: 1500 },
-              ],
-            },
-            {
-              id: 'ord-3',
-              order_id: 'MSK-ORD-2026-0003',
-              customer_name: 'Manoj Kumar',
-              customer_phone: '+91 93612 53338',
-              customer_email: 'manoj@gmail.com',
-              city: 'Coimbatore',
-              district: 'Coimbatore',
-              subtotal: 350,
-              delivery_charge: 50,
-              total: 400,
-              status: 'Pending',
-              created_at: new Date(Date.now() - 3600000 * 48).toISOString(),
-              items: [
-                { product_name: 'French Lavender & Vanilla Soy Candle', size: 'Standard Jar', quantity: 1, price: 350 },
-              ],
-            },
-          ]);
-        }
-
-        if (custOrdRes.data && custOrdRes.data.length > 0) {
-          setCustomOrders(custOrdRes.data);
-        } else {
-          setCustomOrders([
-            {
-              id: 'cust-1',
-              custom_order_id: 'MSK-CUST-2026-0001',
-              name: 'Dr. Sivakumar',
-              phone: '+91 93612 53338',
-              email: 'siva@gmail.com',
-              product_type: 'Photo Frames',
-              frame_size: '30 x 40 inches',
-              quantity: 2,
-              customization_details: 'Hospital opening anniversary ceremony frame with gold-embossed dedication plate.',
-              delivery_address: 'Meenakshi Mission Hospital Road, Madurai',
-              status: 'Processing',
-              created_at: new Date(Date.now() - 86400000).toISOString(),
-            },
-          ]);
-        }
-
-        if (msgRes.data && msgRes.data.length > 0) {
-          setMessages(msgRes.data);
-        } else {
-          setMessages([
-            {
-              id: 'msg-1',
-              name: 'Suresh Kumar',
-              phone: '+91 93612 53338',
-              email: 'suresh@gmail.com',
-              subject: 'Bulk Frame Order for School Reunion',
-              message: 'Looking to order 50 photo frames in 6x8 size with custom school emblem.',
-              is_read: false,
-              created_at: new Date(Date.now() - 172800000).toISOString(),
-            },
-          ]);
-        }
+        setOrders(ordRes.data && ordRes.data.length > 0 ? ordRes.data : []);
+        setCustomOrders(custOrdRes.data && custOrdRes.data.length > 0 ? custOrdRes.data : []);
+        setMessages(msgRes.data && msgRes.data.length > 0 ? msgRes.data : []);
       } catch (err) {
-        console.error(err);
+        console.error('Failed to load admin data:', err);
       } finally {
         setLoading(false);
       }
     }
 
     loadData();
-  }, []);
+  }, [router]);
 
   const handleAdminLogout = async () => {
     try {
@@ -230,12 +157,14 @@ export default function AdminDashboardPage() {
     }
 
     try {
-      const supabase = createClient();
-      await supabase
-        .from('orders')
-        .update({ status: newStatus, updated_at: new Date().toISOString() })
-        .eq('order_id', orderId);
-    } catch (e) {}
+      await fetch('/api/admin/orders', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order_id: orderId, status: newStatus }),
+      });
+    } catch (e) {
+      console.error('Failed to update order status:', e);
+    }
   };
 
   // Price Updates
@@ -248,17 +177,20 @@ export default function AdminDashboardPage() {
     );
 
     try {
-      const supabase = createClient();
-      await supabase
-        .from('price_list')
-        .update({
+      await fetch('/api/admin/data', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'update_price_item',
+          id: editingPriceItem.id,
           price: editingPriceItem.price,
           mrp: editingPriceItem.mrp,
           is_active: editingPriceItem.is_active,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', editingPriceItem.id);
-    } catch (e) {}
+        }),
+      });
+    } catch (e) {
+      console.error('Failed to update price item:', e);
+    }
 
     setEditingPriceItem(null);
   };

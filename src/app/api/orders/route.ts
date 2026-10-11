@@ -1,7 +1,33 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/server';
-import { generateOrderId, isValidPhone, isValidEmail } from '@/lib/utils';
-import { BUSINESS } from '@/lib/constants';
+import { generateOrderId, isValidPhone } from '@/lib/utils';
+import { sendOrderEmails } from '@/lib/email';
+
+export async function GET(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const orderId = searchParams.get('order_id');
+
+    if (!orderId) {
+      return NextResponse.json({ success: false, error: 'Order ID is required' }, { status: 400 });
+    }
+
+    const supabaseAdmin = await createAdminClient();
+    const { data, error } = await supabaseAdmin
+      .from('orders')
+      .select('*, items:order_items(*)')
+      .eq('order_id', orderId)
+      .maybeSingle();
+
+    if (error || !data) {
+      return NextResponse.json({ success: false, error: 'Order not found' }, { status: 404 });
+    }
+
+    return NextResponse.json({ success: true, order: data });
+  } catch (err: any) {
+    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+  }
+}
 
 export async function POST(request: Request) {
   try {
@@ -83,7 +109,7 @@ export async function POST(request: Request) {
         .single();
 
       if (orderError) {
-        console.warn('Supabase order insert warning (using fallback):', orderError.message);
+        console.warn('Supabase order insert warning:', orderError.message);
       } else {
         savedOrder = orderData;
 
@@ -103,7 +129,10 @@ export async function POST(request: Request) {
             uploaded_image_url: item.uploaded_image || null,
           }));
 
-          await supabaseAdmin.from('order_items').insert(orderItemsToInsert);
+          const { error: itemsError } = await supabaseAdmin.from('order_items').insert(orderItemsToInsert);
+          if (itemsError) {
+            console.warn('Supabase order items insert warning:', itemsError.message);
+          }
         }
 
         // 3. Record order status history
@@ -116,39 +145,56 @@ export async function POST(request: Request) {
         }
       }
     } catch (dbErr: any) {
-      console.warn('Database operation handled with local fallback:', dbErr.message);
+      console.warn('Database operation warning:', dbErr.message);
     }
 
-    // 4. Send email notification (non-blocking: email failure will NEVER prevent order confirmation)
+    const orderPayload = savedOrder || {
+      order_id: orderId,
+      customer_name,
+      customer_phone,
+      customer_email,
+      address_line1,
+      address_line2,
+      city,
+      district,
+      state,
+      pincode,
+      subtotal,
+      delivery_charge,
+      discount,
+      total,
+      payment_method,
+      notes,
+      status: 'Pending',
+      created_at: new Date().toISOString(),
+    };
+
+    // 4. Send email notification (non-blocking)
     try {
-      // Simulate/trigger business email dispatch
-      console.log(`[EMAIL NOTIFICATION] New Order ${orderId} received for ${customer_name} (${customer_phone})`);
-      console.log(`[BUSINESS EMAIL] Sent to: ${BUSINESS.email}`);
+      await sendOrderEmails({
+        order: orderPayload,
+        items: items.map((i: any) => ({
+          product_name: i.product_name,
+          size: i.size,
+          quantity: i.quantity,
+          price: i.price,
+          total: i.price * i.quantity,
+          customization_name: i.customization_name,
+          customization_phone: i.customization_phone,
+          customization_instructions: i.customization_instructions,
+          uploaded_image_url: i.uploaded_image,
+        })),
+      });
     } catch (emailErr) {
-      console.error('Email sending failed, order remains successfully placed:', emailErr);
+      console.error('Email dispatch error (order saved successfully):', emailErr);
     }
 
     return NextResponse.json({
       success: true,
       order_id: orderId,
       order: {
-        order_id: orderId,
-        customer_name,
-        customer_phone,
-        customer_email,
-        address_line1,
-        address_line2,
-        city,
-        district,
-        state,
-        pincode,
-        subtotal,
-        delivery_charge,
-        discount,
-        total,
+        ...orderPayload,
         items,
-        status: 'Pending',
-        created_at: new Date().toISOString(),
       },
     });
   } catch (err: any) {
