@@ -114,7 +114,7 @@ export default function HomePage() {
           </div>
 
           {/* Brand Name */}
-          <h1 className="font-heading text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold tracking-wide mb-2 animate-fade-in-up">
+          <h1 className="font-heading text-4xl sm:text-6xl md:text-7xl lg:text-8xl font-bold tracking-tight sm:tracking-wide mb-2 animate-fade-in-up">
             <span className="text-gold-gradient">MSK VISUALS</span>
           </h1>
 

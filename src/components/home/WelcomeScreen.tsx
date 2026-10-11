@@ -140,7 +140,7 @@ export default function WelcomeScreen({ onComplete }: WelcomeScreenProps) {
         autoPlay
         muted
         playsInline
-        className="absolute inset-0 w-full h-full object-cover z-0"
+        className="absolute inset-0 w-full h-full object-contain md:object-cover z-0 p-3 sm:p-0"
       />
 
       {/* Cinematic vignette */}

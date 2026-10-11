@@ -49,10 +49,10 @@ export default function Logo({
       {/* Brand Typography */}
       {showText && (
         <div className="flex flex-col">
-          <span className="font-heading font-bold text-lg sm:text-xl text-gold-gradient tracking-wider leading-tight">
+          <span className="font-heading font-bold text-base sm:text-xl text-gold-gradient tracking-wider leading-tight whitespace-nowrap">
             MSK VISUALS
           </span>
-          <span className="text-[9px] text-gray-400 uppercase tracking-[0.2em] font-medium hidden sm:block">
+          <span className="text-[9px] text-gray-400 uppercase tracking-[0.2em] font-medium hidden sm:block whitespace-nowrap">
             WE DESIGN. YOU IMPRESS.
           </span>
         </div>
