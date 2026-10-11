@@ -137,14 +137,19 @@ export default function OrderConfirmationPage() {
     doc.text(addr, 20, 102);
 
     // Items Table
-    const tableData = (order.items || []).map((item: any, idx: number) => [
-      idx + 1,
-      item.product_name,
-      item.size || 'Standard',
-      item.quantity,
-      `Rs. ${item.price}`,
-      `Rs. ${item.price * item.quantity}`,
-    ]);
+    const tableData = (order.items || []).map((item: any, idx: number) => {
+      let desc = item.product_name;
+      if (item.customization_name) desc += `\nName: ${item.customization_name}`;
+      if (item.uploaded_image_url) desc += `\n[Custom Photo Attached]`;
+      return [
+        idx + 1,
+        desc,
+        item.size || 'Standard',
+        item.quantity,
+        `Rs. ${item.price}`,
+        `Rs. ${item.price * item.quantity}`,
+      ];
+    });
 
     autoTable(doc, {
       startY: 120,
@@ -177,6 +182,22 @@ export default function OrderConfirmationPage() {
     doc.setTextColor(10, 10, 10);
     doc.text(`Grand Total:`, 130, finalY + 28);
     doc.text(`Rs. ${order.total}`, 175, finalY + 28, { align: 'right' });
+
+    // Photo details note in invoice
+    const itemsWithPhotos = (order.items || []).filter((it: any) => it.uploaded_image_url);
+    if (itemsWithPhotos.length > 0) {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9);
+      doc.setTextColor(212, 168, 83);
+      doc.text('CUSTOM UPLOADED PHOTOS (DIGITAL ARCHIVE):', 15, finalY + 40);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(50, 50, 50);
+      itemsWithPhotos.forEach((it: any, pIdx: number) => {
+        doc.text(`• ${it.product_name}: ${it.uploaded_image_url}`, 15, finalY + 46 + pIdx * 5);
+      });
+    }
 
     // Footer note
     doc.setFontSize(8);
@@ -264,16 +285,67 @@ export default function OrderConfirmationPage() {
           </h2>
           <div className="border border-white/10 rounded-lg overflow-hidden divide-y divide-white/5 bg-black-elevated">
             {(order.items || []).map((item: any, i: number) => (
-              <div key={i} className="p-3.5 flex justify-between items-center text-xs">
-                <div>
-                  <div className="text-white font-medium">{item.product_name}</div>
-                  <div className="text-gray-500 text-[11px] mt-0.5">
-                    Size: <strong className="text-gray-300">{item.size || 'Standard'}</strong> | Qty: {item.quantity}
+              <div key={i} className="p-4 space-y-3 text-xs">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <div className="text-white font-medium text-sm">{item.product_name}</div>
+                    <div className="text-gray-400 text-xs mt-0.5">
+                      Size: <strong className="text-gold">{item.size || 'Standard'}</strong> | Qty: {item.quantity}
+                    </div>
+                    {item.customization_name && (
+                      <div className="text-gray-300 mt-1">
+                        <span className="text-gold font-medium">Custom Name:</span> {item.customization_name}
+                      </div>
+                    )}
+                    {item.customization_phone && (
+                      <div className="text-gray-300">
+                        <span className="text-gold font-medium">Custom Phone:</span> {item.customization_phone}
+                      </div>
+                    )}
+                    {item.customization_instructions && (
+                      <div className="text-gray-400 italic mt-0.5">
+                        Instructions: {item.customization_instructions}
+                      </div>
+                    )}
+                  </div>
+                  <div className="text-gold font-bold font-mono text-sm">
+                    {formatPrice(item.price * item.quantity)}
                   </div>
                 </div>
-                <div className="text-gold font-bold font-mono">
-                  {formatPrice(item.price * item.quantity)}
-                </div>
+
+                {/* Uploaded Custom Photo & Download Button */}
+                {item.uploaded_image_url && (
+                  <div className="pt-3 border-t border-white/5 flex flex-wrap items-center justify-between gap-3 bg-black/60 p-3 rounded-lg border border-gold/20">
+                    <div className="flex items-center gap-3">
+                      <img
+                        src={item.uploaded_image_url}
+                        alt="Customer uploaded photo"
+                        className="w-14 h-14 object-cover rounded border border-gold/40 shadow-sm"
+                      />
+                      <div>
+                        <div className="text-white font-semibold text-xs flex items-center gap-1">
+                          <CheckCircle2 size={13} className="text-green-400" />
+                          Custom Photo Attached
+                        </div>
+                        <div className="text-gray-400 text-[11px] mt-0.5">
+                          High-resolution image ready for printing & framing
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <a
+                        href={item.uploaded_image_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        download={`photo-${order.order_id}-${i + 1}.jpg`}
+                        className="btn-gold !py-1.5 !px-3.5 text-xs flex items-center gap-1.5 shadow-md"
+                      >
+                        <Download size={13} />
+                        Download Pic
+                      </a>
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
           </div>

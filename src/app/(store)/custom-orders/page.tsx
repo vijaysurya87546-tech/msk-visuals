@@ -32,8 +32,10 @@ function CustomOrderContent() {
   // Uploaded files
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [photoName, setPhotoName] = useState<string | null>(null);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [refDesignPreview, setRefDesignPreview] = useState<string | null>(null);
   const [refDesignName, setRefDesignName] = useState<string | null>(null);
+  const [refDesignFile, setRefDesignFile] = useState<File | null>(null);
 
   // Submission state
   const [submitting, setSubmitting] = useState(false);
@@ -50,17 +52,32 @@ function CustomOrderContent() {
         alert('File size exceeds 15MB limit.');
         return;
       }
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        if (type === 'photo') {
-          setPhotoPreview(reader.result as string);
-          setPhotoName(file.name);
-        } else {
-          setRefDesignPreview(reader.result as string);
-          setRefDesignName(file.name);
-        }
-      };
-      reader.readAsDataURL(file);
+      if (type === 'photo') {
+        setPhotoFile(file);
+        setPhotoName(file.name);
+        setPhotoPreview(URL.createObjectURL(file));
+      } else {
+        setRefDesignFile(file);
+        setRefDesignName(file.name);
+        setRefDesignPreview(URL.createObjectURL(file));
+      }
+    }
+  };
+
+  const uploadFileToServer = async (file: File): Promise<string | null> => {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('bucket', 'custom-order-files');
+      const res = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+      const data = await res.json();
+      return data.url || null;
+    } catch (err) {
+      console.warn('File upload failed:', err);
+      return null;
     }
   };
 
@@ -74,52 +91,60 @@ function CustomOrderContent() {
     }
 
     setSubmitting(true);
-    const orderSeq = Math.floor(1000 + Math.random() * 9000);
-    const customOrderId = generateCustomOrderId(orderSeq);
 
     try {
-      const supabase = createClient();
-      const { data, error } = await supabase.from('custom_orders').insert({
-        custom_order_id: customOrderId,
-        name,
-        phone,
-        email: email || null,
-        product_type: productType,
-        frame_size: frameSize,
-        quantity,
-        customization_details: customizationDetails || null,
-        delivery_address: deliveryAddress,
-        status: 'Pending',
-      }).select().single();
+      // 1. Upload files to server if selected
+      const uploadedFiles: Array<{ file_url: string; file_name: string; file_type: string }> = [];
 
-      // If files attached and order created
-      if (data && (photoName || refDesignName)) {
-        const filesToInsert = [];
-        if (photoPreview) {
-          filesToInsert.push({
-            custom_order_id: data.id,
-            file_url: photoPreview,
-            file_name: photoName,
+      if (photoFile) {
+        const url = await uploadFileToServer(photoFile);
+        if (url) {
+          uploadedFiles.push({
+            file_url: url,
+            file_name: photoName || photoFile.name,
             file_type: 'main_photo',
           });
         }
-        if (refDesignPreview) {
-          filesToInsert.push({
-            custom_order_id: data.id,
-            file_url: refDesignPreview,
-            file_name: refDesignName,
+      }
+
+      if (refDesignFile) {
+        const url = await uploadFileToServer(refDesignFile);
+        if (url) {
+          uploadedFiles.push({
+            file_url: url,
+            file_name: refDesignName || refDesignFile.name,
             file_type: 'reference_design',
           });
         }
-        if (filesToInsert.length > 0) {
-          await supabase.from('custom_order_files').insert(filesToInsert);
-        }
       }
 
-      setSubmittedOrderId(customOrderId);
+      // 2. Submit to server-side authenticated custom orders API
+      const res = await fetch('/api/custom-orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: name.trim(),
+          phone: phone.trim(),
+          email: email.trim() || null,
+          product_type: productType,
+          frame_size: frameSize,
+          quantity,
+          customization_details: customizationDetails || null,
+          delivery_address: deliveryAddress.trim(),
+          files: uploadedFiles,
+        }),
+      });
+
+      const result = await res.json();
+
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to submit custom order.');
+      }
+
+      setSubmittedOrderId(result.custom_order_id);
     } catch (err: any) {
-      console.warn('Custom order saved with local fallback ID:', customOrderId);
-      setSubmittedOrderId(customOrderId);
+      console.error('Submit custom order error:', err);
+      setErrorMsg(err.message || 'Something went wrong. Please check your connection and try again.');
     } finally {
       setSubmitting(false);
     }

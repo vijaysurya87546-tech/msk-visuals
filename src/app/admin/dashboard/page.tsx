@@ -414,14 +414,19 @@ export default function AdminDashboardPage() {
     doc.text(`Customer: ${order.customer_name} (${order.customer_phone})`, 15, 60);
     doc.text(`Delivery: ${order.city || 'Tamil Nadu'} | Status: ${order.status}`, 15, 66);
 
-    const itemsData = (order.items || []).map((it: any, i: number) => [
-      i + 1,
-      it.product_name,
-      it.size || 'Standard',
-      it.quantity,
-      `Rs. ${it.price}`,
-      `Rs. ${it.price * it.quantity}`,
-    ]);
+    const itemsData = (order.items || []).map((it: any, i: number) => {
+      let desc = it.product_name;
+      if (it.customization_name) desc += `\nName: ${it.customization_name}`;
+      if (it.uploaded_image_url) desc += `\n[Custom Photo Attached]`;
+      return [
+        i + 1,
+        desc,
+        it.size || 'Standard',
+        it.quantity,
+        `Rs. ${it.price}`,
+        `Rs. ${it.price * it.quantity}`,
+      ];
+    });
 
     autoTable(doc, {
       startY: 75,
@@ -433,6 +438,22 @@ export default function AdminDashboardPage() {
     const finalY = (doc as any).lastAutoTable.finalY || 130;
     doc.setFont('helvetica', 'bold');
     doc.text(`Grand Total: Rs. ${order.total}`, 140, finalY + 15);
+
+    // Attached photos note
+    const itemsWithPics = (order.items || []).filter((it: any) => it.uploaded_image_url);
+    if (itemsWithPics.length > 0) {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9);
+      doc.setTextColor(212, 168, 83);
+      doc.text('CUSTOMER ATTACHED PHOTOS:', 15, finalY + 28);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(60, 60, 60);
+      itemsWithPics.forEach((it: any, pIdx: number) => {
+        doc.text(`• ${it.product_name}: ${it.uploaded_image_url}`, 15, finalY + 34 + pIdx * 5);
+      });
+    }
+
     doc.save(`Invoice_${order.order_id}.pdf`);
   };
 
@@ -981,6 +1002,49 @@ export default function AdminDashboardPage() {
                       {cust.customization_details}
                     </div>
                   )}
+
+                  {/* Customer Uploaded Files & Download Pic Button */}
+                  {cust.files && cust.files.length > 0 && (
+                    <div className="p-3 bg-black/60 rounded border border-gold/30 space-y-2">
+                      <strong className="text-gold text-xs block">
+                        Customer Uploaded Images ({cust.files.length}):
+                      </strong>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {cust.files.map((file: any, fIdx: number) => (
+                          <div
+                            key={file.id || fIdx}
+                            className="flex items-center justify-between gap-3 p-2.5 bg-[#141414] rounded-lg border border-white/10"
+                          >
+                            <div className="flex items-center gap-2.5 overflow-hidden">
+                              <img
+                                src={file.file_url}
+                                alt={file.file_name || 'Custom upload'}
+                                className="w-12 h-12 object-cover rounded border border-gold/40 flex-shrink-0"
+                              />
+                              <div className="truncate text-xs">
+                                <div className="text-white truncate font-medium">
+                                  {file.file_name || 'Customer Image'}
+                                </div>
+                                <div className="text-gray-400 text-[10px] capitalize">
+                                  {file.file_type?.replace('_', ' ') || 'Photo'}
+                                </div>
+                              </div>
+                            </div>
+                            <a
+                              href={file.file_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              download={file.file_name || `custom-order-${cust.custom_order_id}.jpg`}
+                              className="btn-gold !py-1.5 !px-3 text-xs flex items-center gap-1.5 flex-shrink-0 shadow-md"
+                            >
+                              <Download size={13} />
+                              Download Pic
+                            </a>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -1143,12 +1207,56 @@ export default function AdminDashboardPage() {
 
             <div className="border border-white/10 rounded-lg overflow-hidden divide-y divide-white/5 text-xs bg-black-elevated">
               {(selectedOrder.items || []).map((it: any, i: number) => (
-                <div key={i} className="p-3 flex justify-between items-center">
-                  <div>
-                    <div className="text-white font-medium">{it.product_name}</div>
-                    <div className="text-gray-500">{it.size} × {it.quantity}</div>
+                <div key={i} className="p-3.5 space-y-2">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <div className="text-white font-medium text-sm">{it.product_name}</div>
+                      <div className="text-gray-400 mt-0.5">{it.size} × {it.quantity}</div>
+                      {it.customization_name && (
+                        <div className="text-gray-300 mt-1">
+                          <span className="text-gold font-medium">Custom Name:</span> {it.customization_name}
+                        </div>
+                      )}
+                      {it.customization_phone && (
+                        <div className="text-gray-300">
+                          <span className="text-gold font-medium">Custom Phone:</span> {it.customization_phone}
+                        </div>
+                      )}
+                      {it.customization_instructions && (
+                        <div className="text-gray-400 italic mt-0.5">
+                          Note: {it.customization_instructions}
+                        </div>
+                      )}
+                    </div>
+                    <div className="text-gold font-bold font-mono">{formatPrice(it.price * it.quantity)}</div>
                   </div>
-                  <div className="text-gold font-bold">{formatPrice(it.price * it.quantity)}</div>
+
+                  {/* Uploaded Customer Photo in Order Modal */}
+                  {it.uploaded_image_url && (
+                    <div className="pt-2 border-t border-white/5 flex items-center justify-between gap-3 bg-black/60 p-2.5 rounded border border-gold/30">
+                      <div className="flex items-center gap-2.5">
+                        <img
+                          src={it.uploaded_image_url}
+                          alt="Customer uploaded photo"
+                          className="w-12 h-12 object-cover rounded border border-gold/40 flex-shrink-0"
+                        />
+                        <div>
+                          <div className="text-white font-medium text-xs">Customer Photo Attached</div>
+                          <div className="text-gray-400 text-[10px]">Ready for framing & printing</div>
+                        </div>
+                      </div>
+                      <a
+                        href={it.uploaded_image_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        download={`order-photo-${selectedOrder.order_id}-${i + 1}.jpg`}
+                        className="btn-gold !py-1 !px-2.5 text-xs flex items-center gap-1 shadow-md flex-shrink-0"
+                      >
+                        <Download size={12} />
+                        Download Pic
+                      </a>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

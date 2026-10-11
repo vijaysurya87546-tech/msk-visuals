@@ -239,3 +239,175 @@ export async function sendOrderEmails({ order, items }: OrderEmailProps) {
   console.log('[EMAIL NOTIFICATION] Dispatched order emails:', results.map(r => r.status));
   return { success: true, results };
 }
+
+interface CustomOrderEmailProps {
+  customOrder: {
+    custom_order_id: string;
+    name: string;
+    phone: string;
+    email?: string | null;
+    product_type: string;
+    frame_size?: string | null;
+    quantity: number;
+    customization_details?: string | null;
+    delivery_address: string;
+  };
+  files?: Array<{
+    file_url: string;
+    file_name?: string | null;
+    file_type?: string | null;
+  }>;
+}
+
+export async function sendCustomOrderEmails({ customOrder, files = [] }: CustomOrderEmailProps) {
+  if (!isEmailConfigured()) {
+    console.warn('[EMAIL NOTIFICATION] SMTP credentials not configured in .env.local.');
+    return { success: false, reason: 'SMTP not configured' };
+  }
+
+  const transporter = createTransporter();
+  const adminEmail = process.env.ADMIN_EMAIL || process.env.EMAIL_USER || BUSINESS.email;
+  const fromEmail = `"${BUSINESS.name}" <${process.env.EMAIL_USER}>`;
+
+  const filesHtml =
+    files.length > 0
+      ? `
+      <div style="background-color: #18181b; padding: 16px; border-radius: 8px; border: 1px solid #27272a; margin-bottom: 20px;">
+        <h3 style="margin: 0 0 10px 0; font-size: 15px; color: #f59e0b;">Attached Customer Images (${files.length})</h3>
+        <ul style="margin: 0; padding-left: 20px; color: #e4e4e7;">
+          ${files
+            .map(
+              (f) => `
+            <li style="margin-bottom: 8px;">
+              <a href="${f.file_url}" target="_blank" style="color: #60a5fa; text-decoration: underline; font-weight: bold;">
+                ${f.file_name || 'Download / View Photo'} (${f.file_type || 'Custom Image'})
+              </a>
+              ${
+                f.file_url.startsWith('http') || f.file_url.startsWith('/')
+                  ? `<div style="margin-top: 6px;"><img src="${f.file_url}" alt="Customer photo" style="max-width: 160px; max-height: 120px; border-radius: 4px; border: 1px solid #3f3f46;" /></div>`
+                  : ''
+              }
+            </li>
+          `
+            )
+            .join('')}
+        </ul>
+      </div>
+    `
+      : '';
+
+  // 1. Email to Admin
+  const adminSubject = `🎨 New Custom Order Request: #${customOrder.custom_order_id} from ${customOrder.name}`;
+  const adminHtml = `
+    <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 650px; margin: 0 auto; background-color: #09090b; color: #ffffff; border-radius: 12px; overflow: hidden; border: 1px solid #27272a;">
+      <div style="background: linear-gradient(135deg, #f59e0b, #d97706); padding: 24px; text-align: center;">
+        <h1 style="margin: 0; font-size: 24px; color: #000000; font-weight: 800;">MSK VISUALS</h1>
+        <p style="margin: 6px 0 0 0; color: #18181b; font-weight: 600;">NEW BESPOKE CUSTOM ORDER</p>
+      </div>
+
+      <div style="padding: 24px;">
+        <div style="background-color: #18181b; padding: 16px; border-radius: 8px; border: 1px solid #27272a; margin-bottom: 20px;">
+          <h2 style="margin: 0 0 12px 0; font-size: 18px; color: #f59e0b;">Request Summary</h2>
+          <p style="margin: 4px 0; color: #e4e4e7;"><strong>Custom Order ID:</strong> ${customOrder.custom_order_id}</p>
+          <p style="margin: 4px 0; color: #e4e4e7;"><strong>Customer:</strong> ${customOrder.name}</p>
+          <p style="margin: 4px 0; color: #e4e4e7;"><strong>Phone:</strong> <a href="tel:${customOrder.phone}" style="color: #60a5fa;">${customOrder.phone}</a></p>
+          ${customOrder.email ? `<p style="margin: 4px 0; color: #e4e4e7;"><strong>Email:</strong> ${customOrder.email}</p>` : ''}
+          <p style="margin: 4px 0; color: #e4e4e7;"><strong>Product Type:</strong> ${customOrder.product_type}</p>
+          <p style="margin: 4px 0; color: #e4e4e7;"><strong>Frame Size:</strong> ${customOrder.frame_size || 'Custom size'}</p>
+          <p style="margin: 4px 0; color: #e4e4e7;"><strong>Quantity:</strong> ${customOrder.quantity}</p>
+        </div>
+
+        ${
+          customOrder.customization_details
+            ? `
+          <div style="background-color: #18181b; padding: 16px; border-radius: 8px; border: 1px solid #27272a; margin-bottom: 20px;">
+            <h3 style="margin: 0 0 8px 0; font-size: 15px; color: #f59e0b;">Customization Instructions</h3>
+            <p style="margin: 0; color: #d4d4d8; line-height: 1.5;">${customOrder.customization_details}</p>
+          </div>
+        `
+            : ''
+        }
+
+        <div style="background-color: #18181b; padding: 16px; border-radius: 8px; border: 1px solid #27272a; margin-bottom: 20px;">
+          <h3 style="margin: 0 0 8px 0; font-size: 15px; color: #f59e0b;">Delivery Address</h3>
+          <p style="margin: 0; color: #d4d4d8; line-height: 1.5;">${customOrder.delivery_address}</p>
+        </div>
+
+        ${filesHtml}
+
+        <div style="text-align: center; margin-top: 24px;">
+          <a href="${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/admin/dashboard" style="display: inline-block; background-color: #f59e0b; color: #000000; font-weight: bold; text-decoration: none; padding: 12px 28px; border-radius: 8px; font-size: 15px;">
+            Open Admin Dashboard
+          </a>
+        </div>
+      </div>
+
+      <div style="padding: 16px; background-color: #18181b; text-align: center; font-size: 12px; color: #71717a; border-top: 1px solid #27272a;">
+        MSK VISUALS • Premium Photo Frames & Customized Gifts • Madurai
+      </div>
+    </div>
+  `;
+
+  const promises: Promise<any>[] = [];
+
+  promises.push(
+    transporter.sendMail({
+      from: fromEmail,
+      to: adminEmail,
+      subject: adminSubject,
+      html: adminHtml,
+    })
+  );
+
+  // 2. Email to Customer (if customer email provided)
+  if (customOrder.email) {
+    const customerSubject = `✨ Custom Order Request Received: #${customOrder.custom_order_id} - MSK Visuals`;
+    const customerHtml = `
+      <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 650px; margin: 0 auto; background-color: #09090b; color: #ffffff; border-radius: 12px; overflow: hidden; border: 1px solid #27272a;">
+        <div style="background: linear-gradient(135deg, #f59e0b, #d97706); padding: 24px; text-align: center;">
+          <h1 style="margin: 0; font-size: 24px; color: #000000; font-weight: 800;">MSK VISUALS</h1>
+          <p style="margin: 6px 0 0 0; color: #18181b; font-weight: 600;">WE RECEIVED YOUR CUSTOM ORDER REQUEST!</p>
+        </div>
+
+        <div style="padding: 24px;">
+          <p style="font-size: 16px; color: #e4e4e7;">Dear <strong>${customOrder.name}</strong>,</p>
+          <p style="color: #a1a1aa; line-height: 1.6;">
+            Thank you for reaching out to MSK Visuals! We have successfully received your custom order request <strong>#${customOrder.custom_order_id}</strong>.
+          </p>
+
+          <div style="background-color: #18181b; padding: 16px; border-radius: 8px; border: 1px solid #27272a; margin: 20px 0;">
+            <h3 style="margin: 0 0 10px 0; font-size: 15px; color: #f59e0b;">Order Request Summary</h3>
+            <p style="margin: 4px 0; color: #d4d4d8;"><strong>Item:</strong> ${customOrder.product_type} (${customOrder.frame_size || 'Custom size'})</p>
+            <p style="margin: 4px 0; color: #d4d4d8;"><strong>Quantity:</strong> ${customOrder.quantity}</p>
+            <p style="margin: 4px 0; color: #d4d4d8;"><strong>Delivery Address:</strong> ${customOrder.delivery_address}</p>
+          </div>
+
+          <div style="background-color: #1c1917; border-left: 4px solid #f59e0b; padding: 14px; border-radius: 4px; margin-bottom: 24px;">
+            <p style="margin: 0; font-size: 14px; color: #fed7aa;">
+              <strong>Fastest Preview & Confirmation:</strong> Connect with our artisans directly on WhatsApp at 
+              <a href="https://wa.me/919361253338" style="color: #f59e0b; text-decoration: underline;">+91 93612 53338</a> with Order ID <strong>#${customOrder.custom_order_id}</strong>.
+            </p>
+          </div>
+        </div>
+
+        <div style="padding: 16px; background-color: #18181b; text-align: center; font-size: 12px; color: #71717a; border-top: 1px solid #27272a;">
+          MSK VISUALS • Madurai, Tamil Nadu • Instagram: @mskvsls • Phone: +91 93612 53338
+        </div>
+      </div>
+    `;
+
+    promises.push(
+      transporter.sendMail({
+        from: fromEmail,
+        to: customOrder.email,
+        subject: customerSubject,
+        html: customerHtml,
+      })
+    );
+  }
+
+  const results = await Promise.allSettled(promises);
+  console.log('[EMAIL NOTIFICATION] Dispatched custom order emails:', results.map((r) => r.status));
+  return { success: true, results };
+}
+
