@@ -73,7 +73,7 @@ export default function RootLayout({
               "priceRange": "₹100 - ₹4500",
               "url": "https://mskvisuals.com",
               "openingHours": "Mo-Sa 09:30-20:30",
-              "sameAs": ["https://instagram.com/msk.vsls"]
+              "sameAs": ["https://www.instagram.com/mskvsls"]
             }),
           }}
         />

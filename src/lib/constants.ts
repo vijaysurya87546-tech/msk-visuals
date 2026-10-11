@@ -12,8 +12,8 @@ export const BUSINESS = {
   whatsapp: '+91 84385 33409',
   whatsappNumber: '918438533409',
   whatsappUrl: 'https://wa.me/918438533409',
-  instagram: '@msk.vsls',
-  instagramUrl: 'https://instagram.com/msk.vsls',
+  instagram: '@mskvsls',
+  instagramUrl: 'https://www.instagram.com/mskvsls',
   address: 'Madurai, Tamil Nadu, India',
   location: {
     city: 'Madurai',
