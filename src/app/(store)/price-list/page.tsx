@@ -94,6 +94,29 @@ export default function PriceListPage() {
         </div>
       </div>
 
+      {/* Flex Price List Link Banner */}
+      <div className="mb-8 p-4 rounded-xl bg-gold/5 border border-gold/25 flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div className="flex items-center gap-3 text-center sm:text-left">
+          <div className="w-9 h-9 rounded-lg bg-gold/15 text-gold flex items-center justify-center shrink-0">
+            <Layers size={18} />
+          </div>
+          <div>
+            <h3 className="text-white text-xs sm:text-sm font-semibold">
+              Looking for Flex & Banner Printing Rates?
+            </h3>
+            <p className="text-gray-400 text-[11px]">
+              Explore our complete 36-size Flex Rate Card, Starflex, Vinyl, Scaffolding rentals & Instant posters.
+            </p>
+          </div>
+        </div>
+        <Link
+          href="/flex#price-list"
+          className="btn-gold !py-1.5 !px-4 text-xs whitespace-nowrap flex items-center gap-1.5"
+        >
+          View Flex Price List <ArrowRight size={13} />
+        </Link>
+      </div>
+
       {/* Main Pricing Table */}
       <div className="card-premium overflow-hidden border border-gold/20 shadow-2xl shadow-black/80">
         <div className="bg-[#141414] px-6 py-4 border-b border-white/10 flex flex-col sm:flex-row justify-between items-center gap-2">

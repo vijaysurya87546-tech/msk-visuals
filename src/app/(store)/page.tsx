@@ -275,6 +275,8 @@ export default function HomePage() {
                 href={
                   service.slug === 'photo-frames'
                     ? '/photo-frames'
+                    : service.slug === 'flex'
+                    ? '/flex'
                     : service.slug === 'gifts'
                     ? '/gifts'
                     : `/shop?category=${service.slug}`
