@@ -12,11 +12,16 @@ import {
   ChevronDown,
   Phone,
   MessageCircle,
+  LogIn,
+  User as UserIcon,
+  LogOut,
 } from 'lucide-react';
 import { useCartStore } from '@/store/cart';
 import { BUSINESS } from '@/lib/constants';
 import { cn } from '@/lib/utils';
 import Logo from '@/components/brand/Logo';
+import AuthModal from '@/components/auth/AuthModal';
+import { createClient } from '@/lib/supabase/client';
 
 const navLinks = [
   { label: 'Home', href: '/' },
@@ -28,7 +33,7 @@ const navLinks = [
       { label: 'Photo Frames', href: '/photo-frames' },
       { label: 'Flex', href: '/flex' },
       { label: 'Resin Art', href: '/shop?category=resin-art' },
-      { label: 'DIY Candles', href: '/shop?category=diy-candles' },
+      { label: 'DIY Candles', href: '/diy-candles' },
       { label: 'Logo Design', href: '/shop?category=logo-design' },
       { label: 'Gifts', href: '/gifts' },
     ],
@@ -45,6 +50,9 @@ export default function Header() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const pathname = usePathname();
   const itemCount = useCartStore((s) => s.getItemCount());
 
@@ -55,9 +63,35 @@ export default function Header() {
   }, []);
 
   useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setCurrentUser(user);
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setCurrentUser(session?.user ?? null);
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
     setIsMobileOpen(false);
     setIsSearchOpen(false);
+    setIsUserMenuOpen(false);
   }, [pathname]);
+
+  const handleLogout = async () => {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    setCurrentUser(null);
+    setIsUserMenuOpen(false);
+    window.location.reload();
+  };
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -183,6 +217,66 @@ export default function Header() {
                 )}
               </Link>
 
+              {/* Customer Account / Login Button */}
+              {currentUser ? (
+                <div className="relative">
+                  <button
+                    onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-gold/40 bg-gold/10 hover:bg-gold/20 text-gold text-xs font-semibold transition-all cursor-pointer shadow-sm"
+                    aria-label="User Account Menu"
+                  >
+                    <div className="w-5 h-5 rounded-full bg-gold text-black-deep flex items-center justify-center font-bold text-[10px]">
+                      {(currentUser.user_metadata?.full_name || currentUser.email || 'U')[0].toUpperCase()}
+                    </div>
+                    <span className="hidden sm:inline max-w-[90px] truncate text-white">
+                      {currentUser.user_metadata?.full_name || currentUser.email?.split('@')[0]}
+                    </span>
+                    <ChevronDown
+                      size={12}
+                      className={cn('transition-transform text-gold', isUserMenuOpen && 'rotate-180')}
+                    />
+                  </button>
+
+                  {/* Dropdown Menu */}
+                  {isUserMenuOpen && (
+                    <div className="absolute right-0 mt-2 w-56 bg-[#161616] border border-gold/25 rounded-2xl shadow-2xl shadow-black/80 p-2 z-50 animate-in fade-in zoom-in-95 duration-150">
+                      <div className="px-3 py-2 border-b border-white/10 mb-1">
+                        <p className="text-xs font-bold text-white truncate">
+                          {currentUser.user_metadata?.full_name || 'Customer'}
+                        </p>
+                        <p className="text-[11px] text-gray-400 truncate">
+                          {currentUser.email}
+                        </p>
+                      </div>
+                      <Link
+                        href="/account"
+                        onClick={() => setIsUserMenuOpen(false)}
+                        className="flex items-center gap-2 px-3 py-2 text-xs text-gray-200 hover:text-gold hover:bg-white/5 rounded-xl transition-colors"
+                      >
+                        <UserIcon size={14} className="text-gold" />
+                        <span>My Account &amp; Orders</span>
+                      </Link>
+                      <button
+                        onClick={handleLogout}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-xs text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-xl transition-colors text-left cursor-pointer"
+                      >
+                        <LogOut size={14} />
+                        <span>Sign Out</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <button
+                  onClick={() => setIsAuthModalOpen(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-white/20 bg-white/5 hover:bg-white/10 hover:border-gold/50 text-gray-200 hover:text-gold text-xs font-semibold transition-all cursor-pointer shadow-sm"
+                  aria-label="Customer Login"
+                >
+                  <LogIn size={13} className="text-gold" />
+                  <span>Login</span>
+                </button>
+              )}
+
               {/* Admin Portal */}
               <Link
                 href="/admin/login"
@@ -277,7 +371,46 @@ export default function Header() {
                   )}
                 </div>
               ))}
-              <div className="pt-3 border-t border-white/5">
+              <div className="pt-3 border-t border-white/5 flex flex-col gap-1.5">
+                {currentUser ? (
+                  <div className="p-3 bg-white/5 rounded-xl border border-gold/20 flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-full bg-gold text-black-deep flex items-center justify-center font-bold text-xs">
+                        {(currentUser.user_metadata?.full_name || currentUser.email || 'U')[0].toUpperCase()}
+                      </div>
+                      <div className="text-left">
+                        <p className="text-xs font-bold text-white leading-tight">
+                          {currentUser.user_metadata?.full_name || currentUser.email?.split('@')[0]}
+                        </p>
+                        <Link
+                          href="/account"
+                          onClick={() => setIsMobileOpen(false)}
+                          className="text-[11px] text-gold hover:underline"
+                        >
+                          View Account &amp; Orders
+                        </Link>
+                      </div>
+                    </div>
+                    <button
+                      onClick={handleLogout}
+                      className="p-1.5 text-red-400 hover:text-red-300 transition-colors cursor-pointer"
+                      title="Sign Out"
+                    >
+                      <LogOut size={16} />
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => {
+                      setIsMobileOpen(false);
+                      setIsAuthModalOpen(true);
+                    }}
+                    className="flex items-center gap-2 px-4 py-3 text-sm text-white bg-white/5 hover:bg-white/10 rounded-lg transition-colors text-left cursor-pointer"
+                  >
+                    <LogIn size={16} className="text-gold" />
+                    <span>Customer Login</span>
+                  </button>
+                )}
                 <Link
                   href="/admin/login"
                   className="flex items-center gap-2 px-4 py-3 text-sm text-gold hover:bg-gold/10 rounded-lg transition-colors"
@@ -290,6 +423,12 @@ export default function Header() {
           </div>
         )}
       </header>
+
+      {/* Rose Travels Style Customer Auth Modal */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+      />
     </>
   );
 }

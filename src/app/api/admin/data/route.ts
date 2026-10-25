@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/server';
+import { getFrameSizes, saveFrameSize } from '@/lib/priceListService';
 
 function isAuthorized(req: NextRequest) {
   const cookie = req.cookies.get('msk_admin_session')?.value;
@@ -15,10 +16,10 @@ export async function GET(req: NextRequest) {
   try {
     const supabaseAdmin = await createAdminClient();
 
-    const [prodRes, catRes, priceRes, ordRes, custOrdRes, revRes, msgRes] = await Promise.all([
+    const [prodRes, catRes, frameSizes, ordRes, custOrdRes, revRes, msgRes] = await Promise.all([
       supabaseAdmin.from('products').select('*, images:product_images(*), sizes:product_sizes(*)').order('sort_order'),
       supabaseAdmin.from('categories').select('*').order('sort_order'),
-      supabaseAdmin.from('price_list').select('*').order('sort_order'),
+      getFrameSizes({ activeOnly: false, useAdmin: true }),
       supabaseAdmin.from('orders').select('*, items:order_items(*)').order('created_at', { ascending: false }),
       supabaseAdmin.from('custom_orders').select('*, files:custom_order_files(*)').order('created_at', { ascending: false }),
       supabaseAdmin.from('reviews').select('*').order('created_at', { ascending: false }),
@@ -30,7 +31,7 @@ export async function GET(req: NextRequest) {
       data: {
         products: prodRes.data || [],
         categories: catRes.data || [],
-        priceList: priceRes.data || [],
+        priceList: frameSizes || [],
         orders: ordRes.data || [],
         customOrders: custOrdRes.data || [],
         reviews: revRes.data || [],
@@ -68,16 +69,22 @@ export async function PATCH(req: NextRequest) {
     }
 
     if (action === 'update_price_item') {
-      const { id, price, mrp, is_active } = params;
-      const { data, error } = await supabaseAdmin
-        .from('price_list')
-        .update({ price, mrp, is_active, updated_at: new Date().toISOString() })
-        .eq('id', id)
-        .select()
-        .single();
+      const { id, price, mrp, is_active, size_label, width, height, image_url } = params;
+      const res = await saveFrameSize({
+        id,
+        price,
+        mrp,
+        is_active,
+        size_label,
+        width,
+        height,
+        image_url,
+      });
 
-      if (error) throw error;
-      return NextResponse.json({ success: true, data });
+      if (!res.success) {
+        return NextResponse.json({ error: res.error }, { status: 400 });
+      }
+      return NextResponse.json({ success: true, data: res.data });
     }
 
     if (action === 'toggle_review') {

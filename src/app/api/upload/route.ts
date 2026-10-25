@@ -3,6 +3,21 @@ import { createAdminClient } from '@/lib/supabase/server';
 import { writeFile, mkdir } from 'fs/promises';
 import path from 'path';
 
+const ALLOWED_MIME_TYPES = [
+  'image/jpeg',
+  'image/jpg',
+  'image/png',
+  'image/webp',
+  'image/gif',
+  'image/avif',
+];
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+
+function isAuthorized(req: NextRequest) {
+  const cookie = req.cookies.get('msk_admin_session')?.value;
+  return Boolean(cookie && cookie.startsWith('msk_') && cookie.length > 20);
+}
+
 export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
@@ -11,6 +26,30 @@ export async function POST(req: NextRequest) {
 
     if (!file) {
       return NextResponse.json({ error: 'No file uploaded' }, { status: 400 });
+    }
+
+    // Server-side admin authorization for product and frame assets
+    if (bucket === 'product-images' || bucket === 'site-assets') {
+      if (!isAuthorized(req)) {
+        return NextResponse.json({ error: 'Unauthorized: Admin authentication required to upload product/frame assets' }, { status: 401 });
+      }
+    }
+
+    // Validate MIME type
+    const fileType = file.type?.toLowerCase() || '';
+    if (!ALLOWED_MIME_TYPES.includes(fileType) && !fileType.startsWith('image/')) {
+      return NextResponse.json(
+        { error: 'Invalid file type. Only JPG, PNG, WEBP, GIF, and AVIF images are permitted.' },
+        { status: 400 }
+      );
+    }
+
+    // Validate file size
+    if (file.size > MAX_FILE_SIZE) {
+      return NextResponse.json(
+        { error: 'File size exceeds 10MB limit. Please upload a smaller image.' },
+        { status: 400 }
+      );
     }
 
     const bytes = await file.arrayBuffer();

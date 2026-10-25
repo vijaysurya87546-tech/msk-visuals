@@ -12,33 +12,34 @@ import {
   Layers,
   Palette,
   ShieldCheck,
+  X,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { formatPrice } from '@/lib/utils';
 import { BUSINESS } from '@/lib/constants';
 import { INITIAL_PRODUCTS, INITIAL_PRICE_LIST } from '@/lib/mockData';
 import type { Product, PriceListItem } from '@/lib/types';
+import FrameMockupCard from '@/components/frames/FrameMockupCard';
+import QuickCustomOrderModal from '@/components/frames/QuickCustomOrderModal';
 
 export default function PhotoFramesPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [prices, setPrices] = useState<PriceListItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [previewMockup, setPreviewMockup] = useState<{ url: string; title: string } | null>(null);
+  const [customOrderItem, setCustomOrderItem] = useState<PriceListItem | null>(null);
 
   useEffect(() => {
     async function loadData() {
       try {
         const supabase = createClient();
-        const [prodRes, priceRes] = await Promise.all([
+        const [prodRes, priceApiRes] = await Promise.all([
           supabase
             .from('products')
             .select('*, images:product_images(*), sizes:product_sizes(*)')
             .eq('is_active', true)
             .order('sort_order'),
-          supabase
-            .from('price_list')
-            .select('*')
-            .eq('is_active', true)
-            .order('sort_order'),
+          fetch('/api/price-list').then((r) => (r.ok ? r.json() : null)).catch(() => null),
         ]);
 
         if (prodRes.data && prodRes.data.length > 0) {
@@ -57,10 +58,16 @@ export default function PhotoFramesPage() {
           setProducts(frameProducts.length > 0 ? frameProducts : INITIAL_PRODUCTS.slice(0, 8));
         }
 
-        if (priceRes.data && priceRes.data.length > 0) {
-          setPrices(priceRes.data);
+        if (priceApiRes?.success && priceApiRes.data && priceApiRes.data.length > 0) {
+          setPrices(priceApiRes.data);
         } else {
-          setPrices(INITIAL_PRICE_LIST);
+          // Fallback to supabase direct query or initial list
+          const { data: directPrices } = await supabase
+            .from('price_list')
+            .select('*')
+            .eq('is_active', true)
+            .order('sort_order');
+          setPrices(directPrices && directPrices.length > 0 ? directPrices : INITIAL_PRICE_LIST);
         }
       } catch (err) {
         console.error('Failed to load photo frames data:', err);
@@ -74,19 +81,7 @@ export default function PhotoFramesPage() {
     loadData();
   }, []);
 
-  const popularSizes =
-    prices.length > 0
-      ? prices
-      : [
-          { id: '1', size_label: '4 x 4', price: 100 },
-          { id: '2', size_label: '6 x 4', price: 150 },
-          { id: '3', size_label: '5 x 7', price: 200 },
-          { id: '4', size_label: '6 x 8', price: 300 },
-          { id: '5', size_label: '10 x 8', price: 400 },
-          { id: '6', size_label: '12 x 8', price: 500 },
-          { id: '7', size_label: '12 x 10', price: 600 },
-          { id: '8', size_label: '12 x 15', price: 700 },
-        ];
+  const popularSizes = prices.length > 0 ? prices : INITIAL_PRICE_LIST;
 
   return (
     <div className="min-h-screen py-10 px-4 md:px-6 max-w-7xl mx-auto">
@@ -123,44 +118,90 @@ export default function PhotoFramesPage() {
       </div>
 
       {/* ===== POPULAR FRAME SIZES & PRICING (Moved from Home Page) ===== */}
-      <section className="mb-16 card-premium p-8 sm:p-12 border border-gold/20">
+      <section className="mb-16 card-premium p-6 sm:p-10 border border-gold/20">
         <div className="text-center mb-10">
           <p className="text-gold text-xs tracking-[0.3em] uppercase mb-2 font-medium">
-            FRAME SIZES
+            FRAME SIZES & ROOM MOCKUPS
           </p>
           <h2 className="section-heading text-gold-gradient text-3xl sm:text-4xl font-bold font-heading">
             Popular Frame Sizes
           </h2>
           <div className="gold-divider-short mt-4 mb-3" />
-          <p className="text-gray-400 text-sm">
-            Choose from our wide range of premium frame sizes.
+          <p className="text-gray-400 text-sm max-w-xl mx-auto">
+            Browse our signature dimensions with authentic room-interior mockups to envision how each size fits on your wall.
           </p>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {popularSizes.map((item) => (
-            <div
+            <FrameMockupCard
               key={item.id}
-              className="bg-black/60 border border-white/10 hover:border-gold/50 rounded-xl p-5 text-center transition-all hover:scale-[1.02] group"
-            >
-              <div className="text-gold font-heading text-xl font-bold group-hover:text-gold-metallic transition-colors">
-                {item.size_label}
-              </div>
-              <div className="text-xs text-gray-500 mb-2">inches</div>
-              <div className="text-white font-semibold text-lg">
-                {formatPrice(item.price)}
-              </div>
-            </div>
+              item={item}
+              onPreview={(url, title) => setPreviewMockup({ url, title })}
+              onCustomOrder={(item) => setCustomOrderItem(item)}
+            />
           ))}
         </div>
 
-        <div className="text-center mt-10">
-          <Link href="/price-list" className="btn-gold-outline">
-            View Full Price List
+        <div className="text-center mt-12 pt-6 border-t border-white/5">
+          <Link href="/price-list" className="btn-gold-outline !py-2.5 px-6">
+            View Full Price List & Dimensions
             <ArrowRight size={16} />
           </Link>
         </div>
       </section>
+
+      {/* Quick Custom Order & Photo Upload Modal */}
+      {customOrderItem && (
+        <QuickCustomOrderModal
+          item={customOrderItem}
+          onClose={() => setCustomOrderItem(null)}
+        />
+      )}
+
+      {/* Lightbox Modal for Mockup Preview */}
+      {previewMockup && (
+        <div
+          className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4"
+          onClick={() => setPreviewMockup(null)}
+        >
+          <div
+            className="card-premium p-4 max-w-3xl w-full border border-gold/40 space-y-3 relative shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center pb-2 border-b border-white/10">
+              <div className="flex items-center gap-2">
+                <Frame size={16} className="text-gold" />
+                <h3 className="font-heading font-bold text-base text-white">
+                  {previewMockup.title}
+                </h3>
+              </div>
+              <button
+                onClick={() => setPreviewMockup(null)}
+                className="p-1.5 text-gray-400 hover:text-white rounded-lg hover:bg-white/10"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="aspect-[4/3] w-full bg-black rounded-lg overflow-hidden border border-white/10">
+              <img
+                src={previewMockup.url}
+                alt={previewMockup.title}
+                className="w-full h-full object-contain"
+              />
+            </div>
+            <div className="flex justify-between items-center text-xs text-gray-400 pt-1">
+              <span>Studio visual preview</span>
+              <button
+                onClick={() => setPreviewMockup(null)}
+                className="btn-gold !py-1 !px-4 text-xs"
+              >
+                Close Preview
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ===== FEATURED FRAME DESIGNS ===== */}
       <section className="mb-16">

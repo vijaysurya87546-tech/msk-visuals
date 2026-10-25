@@ -176,6 +176,7 @@ export interface PriceListItem {
   height: number | null;
   price: number;
   mrp: number;
+  image_url?: string | null;
   is_active: boolean;
   sort_order: number;
   created_at: string;
@@ -230,12 +231,14 @@ export interface ContactMessage {
 export interface CartItem {
   product_id: string;
   product_name: string;
-  product_image: string;
+  product_image?: string;
+  product_slug?: string;
+  image_url?: string;
   size: string;
   price: number;
   mrp: number;
   quantity: number;
-  is_customizable: boolean;
+  is_customizable?: boolean;
   customization_name?: string;
   customization_phone?: string;
   customization_instructions?: string;

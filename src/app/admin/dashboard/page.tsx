@@ -34,6 +34,7 @@ import {
   Truck,
   Sparkles,
   ShieldAlert,
+  Frame,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { formatPrice, getStatusColor, generateWhatsAppUrl, cn } from '@/lib/utils';
@@ -65,6 +66,7 @@ export default function AdminDashboardPage() {
   // Search & Filters
   const [searchFilter, setSearchFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [productCategoryFilter, setProductCategoryFilter] = useState<string>('all');
 
   // Modals
   const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
@@ -76,6 +78,36 @@ export default function AdminDashboardPage() {
   const [previewModalImg, setPreviewModalImg] = useState<{ url: string; title: string } | null>(null);
   const [downloadingUrl, setDownloadingUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Frame Sizes & Mockups Management State
+  const [isNewFrameSizeModal, setIsNewFrameSizeModal] = useState(false);
+  const [deletingFrameSize, setDeletingFrameSize] = useState<PriceListItem | null>(null);
+  const [frameSearch, setFrameSearch] = useState('');
+  const [frameFilter, setFrameFilter] = useState<'all' | 'active' | 'disabled' | 'with-mockup' | 'no-mockup'>('all');
+  const [frameSort, setFrameSort] = useState<'sort_order' | 'price-asc' | 'price-desc' | 'label'>('sort_order');
+  const [frameForm, setFrameForm] = useState<{
+    id?: string;
+    size_label: string;
+    width: number | '';
+    height: number | '';
+    price: number | '';
+    mrp: number | '';
+    image_url: string;
+    is_active: boolean;
+  }>({
+    size_label: '',
+    width: '',
+    height: '',
+    price: '',
+    mrp: '',
+    image_url: '',
+    is_active: true,
+  });
+  const [frameMockupFile, setFrameMockupFile] = useState<File | null>(null);
+  const [frameMockupPreview, setFrameMockupPreview] = useState<string | null>(null);
+  const [savingFrameSize, setSavingFrameSize] = useState(false);
+  const [frameError, setFrameError] = useState<string | null>(null);
+  const frameFileInputRef = useRef<HTMLInputElement>(null);
 
   // Direct high-res photo download helper
   const handleDownloadPic = async (url: string, filename?: string) => {
@@ -192,32 +224,197 @@ export default function AdminDashboardPage() {
     }
   };
 
-  // Price Updates
-  const handleSavePriceItem = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingPriceItem) return;
+  // ================= FRAME SIZES & MOCKUPS HANDLERS =================
+  const handleOpenCreateFrameSize = () => {
+    setFrameForm({
+      size_label: '',
+      width: '',
+      height: '',
+      price: '',
+      mrp: '',
+      image_url: '',
+      is_active: true,
+    });
+    setFrameMockupFile(null);
+    setFrameMockupPreview(null);
+    setFrameError(null);
+    setIsNewFrameSizeModal(true);
+  };
 
+  const handleOpenEditFrameSize = (item: PriceListItem) => {
+    setFrameForm({
+      id: item.id,
+      size_label: item.size_label,
+      width: item.width ?? '',
+      height: item.height ?? '',
+      price: item.price,
+      mrp: item.mrp || Math.round(item.price * 1.4),
+      image_url: item.image_url || '',
+      is_active: item.is_active,
+    });
+    setFrameMockupFile(null);
+    setFrameMockupPreview(null);
+    setFrameError(null);
+    setEditingPriceItem(item);
+  };
+
+  const handleFrameMockupFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setFrameError('Please select a valid image file (JPG, PNG, WEBP, AVIF).');
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      setFrameError('Image size exceeds 10MB limit. Please choose a smaller photo.');
+      return;
+    }
+
+    setFrameError(null);
+    setFrameMockupFile(file);
+    // Instant preview before saving
+    setFrameMockupPreview(URL.createObjectURL(file));
+  };
+
+  const handleRemoveFrameMockup = () => {
+    setFrameMockupFile(null);
+    setFrameMockupPreview(null);
+    setFrameForm((prev) => ({ ...prev, image_url: '' }));
+    if (frameFileInputRef.current) {
+      frameFileInputRef.current.value = '';
+    }
+  };
+
+  const handleSaveFrameSize = async (e: React.FormEvent, isEditing: boolean) => {
+    e.preventDefault();
+    setSavingFrameSize(true);
+    setFrameError(null);
+
+    try {
+      let finalImageUrl = frameForm.image_url;
+
+      // 1. If a new mockup file was selected, upload it to storage first
+      if (frameMockupFile) {
+        const formData = new FormData();
+        formData.append('file', frameMockupFile);
+        formData.append('bucket', 'product-images');
+
+        const uploadRes = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData,
+        });
+
+        const uploadJson = await uploadRes.json();
+        if (!uploadRes.ok || !uploadJson.url) {
+          throw new Error(uploadJson.error || 'Failed to upload mockup image to storage.');
+        }
+
+        finalImageUrl = uploadJson.url;
+      }
+
+      if (isEditing && frameForm.id) {
+        // UPDATE existing frame size
+        const res = await fetch('/api/admin/price-list', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: frameForm.id,
+            size_label: frameForm.size_label,
+            width: frameForm.width === '' ? null : Number(frameForm.width),
+            height: frameForm.height === '' ? null : Number(frameForm.height),
+            price: Number(frameForm.price),
+            mrp: frameForm.mrp === '' ? Number(frameForm.price) * 1.4 : Number(frameForm.mrp),
+            image_url: finalImageUrl || null,
+            is_active: frameForm.is_active,
+            old_image_url: editingPriceItem?.image_url,
+          }),
+        });
+
+        const json = await res.json();
+        if (!res.ok || !json.success) {
+          throw new Error(json.error || 'Failed to update frame size.');
+        }
+
+        setPriceList((prev) =>
+          prev.map((item) => (item.id === frameForm.id ? json.data : item))
+        );
+        setEditingPriceItem(null);
+      } else {
+        // CREATE new frame size
+        const res = await fetch('/api/admin/price-list', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            size_label: frameForm.size_label,
+            width: frameForm.width === '' ? null : Number(frameForm.width),
+            height: frameForm.height === '' ? null : Number(frameForm.height),
+            price: Number(frameForm.price),
+            mrp: frameForm.mrp === '' ? Number(frameForm.price) * 1.4 : Number(frameForm.mrp),
+            image_url: finalImageUrl || null,
+            is_active: frameForm.is_active,
+          }),
+        });
+
+        const json = await res.json();
+        if (!res.ok || !json.success) {
+          throw new Error(json.error || 'Failed to create frame size.');
+        }
+
+        setPriceList((prev) => [...prev, json.data]);
+        setIsNewFrameSizeModal(false);
+      }
+    } catch (err: any) {
+      console.error('Save frame size error:', err);
+      setFrameError(err.message || 'Error occurred while saving frame size.');
+    } finally {
+      setSavingFrameSize(false);
+    }
+  };
+
+  const handleToggleFrameStatus = async (item: PriceListItem) => {
+    const updatedStatus = !item.is_active;
+    // Optimistic UI update
     setPriceList((prev) =>
-      prev.map((p) => (p.id === editingPriceItem.id ? editingPriceItem : p))
+      prev.map((p) => (p.id === item.id ? { ...p, is_active: updatedStatus } : p))
     );
 
     try {
-      await fetch('/api/admin/data', {
+      await fetch('/api/admin/price-list', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          action: 'update_price_item',
-          id: editingPriceItem.id,
-          price: editingPriceItem.price,
-          mrp: editingPriceItem.mrp,
-          is_active: editingPriceItem.is_active,
+          action: 'toggle_status',
+          id: item.id,
+          is_active: updatedStatus,
         }),
       });
-    } catch (e) {
-      console.error('Failed to update price item:', e);
+    } catch (err) {
+      console.error('Failed to toggle frame size status:', err);
     }
+  };
 
-    setEditingPriceItem(null);
+  const handleConfirmDeleteFrameSize = async () => {
+    if (!deletingFrameSize) return;
+    const targetId = deletingFrameSize.id;
+
+    // Optimistic UI update
+    setPriceList((prev) => prev.filter((p) => p.id !== targetId));
+    setDeletingFrameSize(null);
+
+    try {
+      await fetch(`/api/admin/price-list?id=${targetId}`, {
+        method: 'DELETE',
+      });
+    } catch (err) {
+      console.error('Failed to delete frame size:', err);
+    }
+  };
+
+  // Backward compatible alias
+  const handleSavePriceItem = async (e: React.FormEvent) => {
+    await handleSaveFrameSize(e, true);
   };
 
   // Image upload handler
@@ -504,7 +701,7 @@ export default function AdminDashboardPage() {
               { id: 'overview', label: 'Overview & Stats', icon: <LayoutDashboard size={16} /> },
               { id: 'orders', label: `Orders (${orders.length})`, icon: <ShoppingBag size={16} /> },
               { id: 'products', label: `Products (${products.length})`, icon: <Package size={16} /> },
-              { id: 'prices', label: 'Price List Manager', icon: <IndianRupee size={16} /> },
+              { id: 'prices', label: `Frame Sizes & Mockups (${priceList.length})`, icon: <Frame size={16} /> },
               { id: 'custom-orders', label: `Custom Orders (${customOrders.length})`, icon: <Palette size={16} /> },
               { id: 'categories', label: 'Categories', icon: <Layers size={16} /> },
               { id: 'customers', label: 'Customer Records', icon: <Users size={16} /> },
@@ -816,30 +1013,77 @@ export default function AdminDashboardPage() {
         )}
 
         {/* ================= TAB 3: PRODUCTS MANAGEMENT ================= */}
-        {activeTab === 'products' && (
+        {activeTab === 'products' && (() => {
+          // Frame sub-category slugs — all these belong under Photo Frames
+          const FRAME_SUB_SLUGS = [
+            'photo-frames','single-frames','multi-photo-frames','customized-frames',
+            'religious-frames','wedding-frames','birthday-frames','memorial-frames',
+            'couple-frames','family-frames','corporate-frames',
+          ];
+
+          // Filter products by selected category tab
+          const filteredProds = products.filter((p) => {
+            // Category filter
+            if (productCategoryFilter !== 'all') {
+              const selectedCat = categories.find((c) => c.id === productCategoryFilter);
+              if (!selectedCat) return false;
+
+              if (selectedCat.slug === 'photo-frames') {
+                // Show ALL frame sub-category products under Photo Frames tab
+                const productCat = categories.find((c) => c.id === p.category_id);
+                const isFrame = FRAME_SUB_SLUGS.includes(productCat?.slug || '') || FRAME_SUB_SLUGS.includes((p as any).category?.slug || '');
+                if (!isFrame) return false;
+              } else {
+                // Direct match for Flex, Resin Art, DIY Candles, Logo Design, Gifts
+                const directMatch = p.category_id === selectedCat.id || (p as any).category?.slug === selectedCat.slug;
+                if (!directMatch) return false;
+              }
+            }
+
+            // Search filter
+            if (searchFilter.trim()) {
+              const q = searchFilter.toLowerCase();
+              return (
+                p.name.toLowerCase().includes(q) ||
+                (p.description || '').toLowerCase().includes(q) ||
+                (p.sku || '').toLowerCase().includes(q)
+              );
+            }
+            return true;
+          });
+
+          // Count for Photo Frames tab = all frame sub-products
+          const photoFrameCount = products.filter((p) => {
+            const productCat = categories.find((c) => c.id === p.category_id);
+            return FRAME_SUB_SLUGS.includes(productCat?.slug || '') || FRAME_SUB_SLUGS.includes((p as any).category?.slug || '');
+          }).length;
+
+          return (
           <div className="space-y-6">
-            <div className="flex justify-between items-center">
+            {/* Header */}
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
               <div>
-                <h2 className="font-heading font-bold text-lg text-white">Product Catalog ({products.length})</h2>
-                <p className="text-xs text-gray-400">Add, edit prices, descriptions, and stock.</p>
+                <h2 className="font-heading font-bold text-lg text-white">Product Catalog ({filteredProds.length}/{products.length})</h2>
+                <p className="text-xs text-gray-400">Add, edit prices, images, descriptions, and stock for any product.</p>
               </div>
               <button
                 onClick={() => {
+                  const candleCat = categories.find((c) => c.slug === 'diy-candles');
                   setEditingProduct({
                     id: '',
                     name: '',
                     slug: '',
                     description: '',
                     short_description: '',
-                    price: 200,
-                    mrp: 300,
+                    price: 399,
+                    mrp: 599,
                     discount_percent: 33,
-                    category_id: categories[0]?.id || '',
-                    material: 'Wood & Gold Foil',
+                    category_id: productCategoryFilter !== 'all' ? productCategoryFilter : (candleCat?.id || categories[0]?.id || ''),
+                    material: '100% Natural Soy Wax & Cotton Wick',
                     is_customizable: true,
                     is_active: true,
-                    is_featured: false,
-                    stock: 50,
+                    is_featured: true,
+                    stock: 25,
                     sku: '',
                     sort_order: products.length + 1,
                     created_at: '',
@@ -847,120 +1091,535 @@ export default function AdminDashboardPage() {
                   });
                   setIsNewProductModal(true);
                 }}
-                className="btn-gold !py-2 !px-4 text-xs flex items-center gap-1.5"
+                className="btn-gold !py-2 !px-4 text-xs flex items-center gap-1.5 whitespace-nowrap"
               >
                 <Plus size={14} /> Add New Product
               </button>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {products.map((p) => {
-                const img = p.images?.[0]?.image_url || 'https://images.unsplash.com/photo-1513519245088-0e12902e5a38?auto=format&fit=crop&w=600&q=80';
-                return (
-                  <div key={p.id} className="card-premium overflow-hidden flex flex-col justify-between">
-                    <div className="aspect-video bg-black-elevated relative overflow-hidden">
-                      <img src={img} alt={p.name} className="w-full h-full object-cover" />
-                      <span className="badge-discount absolute top-2 left-2">
-                        {p.discount_percent}% OFF
-                      </span>
-                    </div>
-
-                    <div className="p-4 flex-1 flex flex-col justify-between">
-                      <div>
-                        <h3 className="font-semibold text-white text-sm line-clamp-1">{p.name}</h3>
-                        <p className="text-gray-400 text-xs mt-1 line-clamp-2">{p.description}</p>
-                        <div className="mt-2 text-xs text-gray-500">
-                          Stock: <strong className="text-gray-300">{p.stock} units</strong>
-                        </div>
-                      </div>
-
-                      <div className="mt-4 pt-3 border-t border-white/5 flex items-center justify-between">
-                        <div>
-                          <div className="text-gold font-heading font-bold text-base">{formatPrice(p.price)}</div>
-                          <div className="text-[10px] text-gray-500 line-through">{formatPrice(p.mrp)}</div>
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => {
-                              setEditingProduct(p);
-                              setIsNewProductModal(false);
-                            }}
-                            className="p-1.5 bg-white/5 text-gray-300 hover:text-gold rounded border border-white/10"
-                            title="Edit"
-                          >
-                            <Edit size={14} />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteProduct(p.id)}
-                            className="p-1.5 bg-red-500/10 text-red-400 hover:text-red-300 rounded border border-red-500/20"
-                            title="Delete"
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* ================= TAB 4: PRICE LIST MANAGER ================= */}
-        {activeTab === 'prices' && (
-          <div className="space-y-6">
-            <div className="card-premium p-6">
-              <h2 className="font-heading font-bold text-lg text-white mb-1">
-                Frame Size & Price Configuration
-              </h2>
-              <p className="text-xs text-gray-400 mb-6">
-                All prices here reflect live on the website price list and custom framing options without developer code changes.
-              </p>
-
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs border-collapse">
-                  <thead>
-                    <tr className="border-b border-white/10 bg-[#121212] text-gray-400 uppercase tracking-wider text-[11px]">
-                      <th className="p-3">Size Label (Inches)</th>
-                      <th className="p-3">MRP (₹)</th>
-                      <th className="p-3">Offer Price (₹)</th>
-                      <th className="p-3">Status</th>
-                      <th className="p-3 text-right">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-white/5">
-                    {priceList.map((item) => (
-                      <tr key={item.id} className="hover:bg-white/[0.02]">
-                        <td className="p-3 font-mono font-bold text-gold text-sm">
-                          {item.size_label}
-                        </td>
-                        <td className="p-3 text-gray-400">
-                          {formatPrice(item.mrp || item.price * 1.4)}
-                        </td>
-                        <td className="p-3 font-heading font-bold text-white text-base">
-                          {formatPrice(item.price)}
-                        </td>
-                        <td className="p-3">
-                          <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${item.is_active ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
-                            {item.is_active ? 'Available' : 'Disabled'}
-                          </span>
-                        </td>
-                        <td className="p-3 text-right">
-                          <button
-                            onClick={() => setEditingPriceItem(item)}
-                            className="btn-gold !py-1 !px-3 text-xs"
-                          >
-                            Edit Price
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+            {/* Category Filter Tabs — 6 main service categories only */}
+            <div className="card-premium p-4 border border-white/5 space-y-3">
+              <div className="flex flex-wrap gap-2">
+                {/* All */}
+                <button
+                  onClick={() => setProductCategoryFilter('all')}
+                  className={cn(
+                    'px-3 py-1.5 rounded-lg text-xs font-medium transition-colors',
+                    productCategoryFilter === 'all'
+                      ? 'bg-gold text-black font-bold'
+                      : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 border border-white/10'
+                  )}
+                >
+                  All ({products.length})
+                </button>
+                {/* Only the 6 main service categories */}
+                {[
+                  { slug: 'photo-frames', label: 'Photo Frames', icon: '🖼️' },
+                  { slug: 'flex', label: 'Flex', icon: '🖨️' },
+                  { slug: 'resin-art', label: 'Resin Art', icon: '💎' },
+                  { slug: 'diy-candles', label: 'DIY Candles', icon: '🕯️' },
+                  { slug: 'logo-design', label: 'Logo Design', icon: '✏️' },
+                  { slug: 'gifts', label: 'Gifts', icon: '🎁' },
+                ].map(({ slug, label, icon }) => {
+                  const cat = categories.find((c) => c.slug === slug);
+                  if (!cat) return null;
+                  // Photo Frames counts ALL frame sub-categories
+                  const count = slug === 'photo-frames'
+                    ? photoFrameCount
+                    : products.filter((p) => p.category_id === cat.id).length;
+                  return (
+                    <button
+                      key={cat.id}
+                      onClick={() => setProductCategoryFilter(cat.id)}
+                      className={cn(
+                        'px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5',
+                        productCategoryFilter === cat.id
+                          ? 'bg-gold text-black font-bold'
+                          : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 border border-white/10'
+                      )}
+                    >
+                      <span>{icon}</span>
+                      {label} ({count})
+                    </button>
+                  );
+                })}
+              </div>
+              {/* Search within filtered */}
+              <div className="relative">
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+                <input
+                  type="text"
+                  value={searchFilter}
+                  onChange={(e) => setSearchFilter(e.target.value)}
+                  placeholder="Search products by name, description, SKU..."
+                  className="input-premium text-xs pl-9 py-2"
+                />
               </div>
             </div>
+
+            {/* Products Grid */}
+            {filteredProds.length === 0 ? (
+              <div className="py-16 text-center card-premium">
+                <Package size={36} className="text-gray-600 mx-auto mb-3" />
+                <p className="text-gray-400 text-sm">No products found for this category.</p>
+                <p className="text-xs text-gray-500 mt-1">Click <strong className="text-gold">Add New Product</strong> to add one.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredProds.map((p) => {
+                  const img = p.images?.[0]?.image_url || 'https://images.unsplash.com/photo-1603006905003-be475563bc59?auto=format&fit=crop&w=600&q=80';
+                  const cat = categories.find((c) => c.id === p.category_id);
+                  return (
+                    <div key={p.id} className="card-premium overflow-hidden flex flex-col justify-between border border-white/5 hover:border-gold/30 transition-all">
+                      {/* Image */}
+                      <div className="aspect-video bg-black-elevated relative overflow-hidden group/img">
+                        <img src={img} alt={p.name} className="w-full h-full object-cover group-hover/img:scale-105 transition-transform duration-500" />
+                        {p.discount_percent > 0 && (
+                          <span className="badge-discount absolute top-2 left-2">
+                            {p.discount_percent}% OFF
+                          </span>
+                        )}
+                        {/* Quick edit overlay */}
+                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center gap-3">
+                          <button
+                            onClick={() => { setEditingProduct(p); setIsNewProductModal(false); }}
+                            className="px-3 py-1.5 bg-gold text-black text-xs font-bold rounded flex items-center gap-1"
+                          >
+                            <Edit size={13} /> Edit Product
+                          </button>
+                        </div>
+                        {/* Category badge */}
+                        {cat && (
+                          <span className="absolute bottom-2 right-2 px-2 py-0.5 rounded text-[10px] bg-black/80 text-gold border border-gold/30">
+                            {cat.name}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="p-4 flex-1 flex flex-col justify-between">
+                        <div>
+                          <div className="flex items-start justify-between gap-2">
+                            <h3 className="font-semibold text-white text-sm line-clamp-1 flex-1">{p.name}</h3>
+                            <span className={cn(
+                              'text-[10px] px-1.5 py-0.5 rounded shrink-0',
+                              p.is_active ? 'bg-emerald-500/15 text-emerald-400' : 'bg-red-500/15 text-red-400'
+                            )}>
+                              {p.is_active ? 'Live' : 'Hidden'}
+                            </span>
+                          </div>
+                          <p className="text-gray-400 text-xs mt-1 line-clamp-2">{p.short_description || p.description}</p>
+                          <div className="mt-2 flex items-center gap-3 text-xs text-gray-500">
+                            <span>Stock: <strong className="text-gray-300">{p.stock}</strong></span>
+                            {p.sku && <span>SKU: <strong className="text-gray-300">{p.sku}</strong></span>}
+                          </div>
+                        </div>
+
+                        <div className="mt-4 pt-3 border-t border-white/5 flex items-center justify-between">
+                          <div>
+                            <div className="text-gold font-heading font-bold text-base">{formatPrice(p.price)}</div>
+                            {p.mrp > p.price && (
+                              <div className="text-[10px] text-gray-500 line-through">{formatPrice(p.mrp)}</div>
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => { setEditingProduct(p); setIsNewProductModal(false); }}
+                              className="px-3 py-1.5 bg-white/5 text-gray-300 hover:text-gold hover:bg-white/10 rounded border border-white/10 text-xs flex items-center gap-1 transition-colors"
+                              title="Edit product"
+                            >
+                              <Edit size={13} /> Edit
+                            </button>
+                            <button
+                              onClick={() => handleDeleteProduct(p.id)}
+                              className="p-1.5 bg-red-500/10 text-red-400 hover:text-red-300 hover:bg-red-500/20 rounded border border-red-500/20 transition-colors"
+                              title="Delete product"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+          );
+        })()}
+
+        {/* ================= TAB 4: FRAME SIZES & ROOM MOCKUPS MANAGER ================= */}
+        {activeTab === 'prices' && (
+          <div className="space-y-6">
+            {/* Top Action & Stats Header */}
+            <div className="card-premium p-6 border border-gold/25 space-y-5">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div>
+                  <h2 className="font-heading font-bold text-xl text-white flex items-center gap-2">
+                    <Frame size={20} className="text-gold" /> Frame Sizes & Mockup Photos
+                  </h2>
+                  <p className="text-xs text-gray-400 mt-1 max-w-2xl">
+                    Manage dimensions, Indian rupee pricing, and individual room-interior mockup images. Changes reflect live on the customer-facing storefront and price lists.
+                  </p>
+                </div>
+                <button
+                  onClick={handleOpenCreateFrameSize}
+                  className="btn-gold !py-2 px-5 text-xs flex items-center gap-2 shadow-lg shrink-0"
+                >
+                  <Plus size={15} />
+                  <span>Add New Frame Size</span>
+                </button>
+              </div>
+
+              {/* Stats Chips */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2 border-t border-white/5">
+                <div className="p-3 bg-black/50 rounded-lg border border-white/5">
+                  <div className="text-[10px] text-gray-400 uppercase tracking-wider">Total Frame Sizes</div>
+                  <div className="text-xl font-bold font-heading text-white mt-0.5">{priceList.length}</div>
+                </div>
+                <div className="p-3 bg-black/50 rounded-lg border border-white/5">
+                  <div className="text-[10px] text-green-400 uppercase tracking-wider">Live on Store</div>
+                  <div className="text-xl font-bold font-heading text-green-400 mt-0.5">
+                    {priceList.filter((p) => p.is_active).length}
+                  </div>
+                </div>
+                <div className="p-3 bg-black/50 rounded-lg border border-white/5">
+                  <div className="text-[10px] text-gold uppercase tracking-wider">Mockups Uploaded</div>
+                  <div className="text-xl font-bold font-heading text-gold mt-0.5">
+                    {priceList.filter((p) => Boolean(p.image_url)).length}
+                  </div>
+                </div>
+                <div className="p-3 bg-black/50 rounded-lg border border-white/5">
+                  <div className="text-[10px] text-yellow-400 uppercase tracking-wider">Missing Mockup</div>
+                  <div className="text-xl font-bold font-heading text-yellow-400 mt-0.5">
+                    {priceList.filter((p) => !p.image_url).length}
+                  </div>
+                </div>
+              </div>
+
+              {/* Search, Filter & Sort Controls */}
+              <div className="pt-2 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 text-xs">
+                {/* Search */}
+                <div className="relative flex-1 max-w-md">
+                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="text"
+                    value={frameSearch}
+                    onChange={(e) => setFrameSearch(e.target.value)}
+                    placeholder="Search size (e.g. 12 x 18, 20)..."
+                    className="input-premium !pl-9 text-xs w-full"
+                  />
+                  {frameSearch && (
+                    <button
+                      onClick={() => setFrameSearch('')}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+                    >
+                      <X size={13} />
+                    </button>
+                  )}
+                </div>
+
+                {/* Filters */}
+                <div className="flex flex-wrap items-center gap-2">
+                  <select
+                    value={frameFilter}
+                    onChange={(e) => setFrameFilter(e.target.value as any)}
+                    className="input-premium text-xs py-1.5 px-3 bg-[#161616]"
+                  >
+                    <option value="all">All Status ({priceList.length})</option>
+                    <option value="active">Active Only ({priceList.filter((p) => p.is_active).length})</option>
+                    <option value="disabled">Disabled Only ({priceList.filter((p) => !p.is_active).length})</option>
+                    <option value="with-mockup">With Mockup Image ({priceList.filter((p) => Boolean(p.image_url)).length})</option>
+                    <option value="no-mockup">Missing Mockup ({priceList.filter((p) => !p.image_url).length})</option>
+                  </select>
+
+                  <select
+                    value={frameSort}
+                    onChange={(e) => setFrameSort(e.target.value as any)}
+                    className="input-premium text-xs py-1.5 px-3 bg-[#161616]"
+                  >
+                    <option value="sort_order">Default Sort Order</option>
+                    <option value="price-asc">Price: Low to High</option>
+                    <option value="price-desc">Price: High to Low</option>
+                    <option value="label">Size Label A–Z</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* List / Table */}
+            {(() => {
+              const filteredFrameSizes = priceList
+                .filter((item) => {
+                  if (frameSearch) {
+                    const q = frameSearch.toLowerCase().trim();
+                    if (!item.size_label.toLowerCase().includes(q)) return false;
+                  }
+                  if (frameFilter === 'active') return item.is_active;
+                  if (frameFilter === 'disabled') return !item.is_active;
+                  if (frameFilter === 'with-mockup') return Boolean(item.image_url);
+                  if (frameFilter === 'no-mockup') return !item.image_url;
+                  return true;
+                })
+                .sort((a, b) => {
+                  if (frameSort === 'price-asc') return a.price - b.price;
+                  if (frameSort === 'price-desc') return b.price - a.price;
+                  if (frameSort === 'label') return a.size_label.localeCompare(b.size_label);
+                  return (a.sort_order || 0) - (b.sort_order || 0);
+                });
+
+              if (filteredFrameSizes.length === 0) {
+                return (
+                  <div className="card-premium p-12 text-center border border-white/5 space-y-3">
+                    <Frame size={32} className="text-gray-600 mx-auto" />
+                    <h3 className="text-white font-medium text-sm">No frame sizes found</h3>
+                    <p className="text-xs text-gray-500">
+                      {frameSearch || frameFilter !== 'all'
+                        ? 'Try adjusting your search query or filter options.'
+                        : 'Get started by creating your first frame size with mockup.'}
+                    </p>
+                    <button
+                      onClick={handleOpenCreateFrameSize}
+                      className="btn-gold !py-1.5 px-4 text-xs inline-flex items-center gap-1.5 mt-2"
+                    >
+                      <Plus size={14} /> Add Frame Size
+                    </button>
+                  </div>
+                );
+              }
+
+              return (
+                <div className="space-y-4">
+                  {/* Desktop Table View */}
+                  <div className="card-premium overflow-hidden border border-white/10 hidden md:block">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs border-collapse">
+                        <thead>
+                          <tr className="border-b border-white/10 bg-[#121212] text-gray-400 uppercase tracking-wider text-[11px]">
+                            <th className="p-3.5 pl-5">Mockup Image</th>
+                            <th className="p-3.5">Size Dimensions (Inches)</th>
+                            <th className="p-3.5">MRP (₹)</th>
+                            <th className="p-3.5">Offer Price (₹)</th>
+                            <th className="p-3.5 text-center">Status</th>
+                            <th className="p-3.5 pr-5 text-right">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-white/5">
+                          {filteredFrameSizes.map((item) => (
+                            <tr key={item.id} className="hover:bg-white/[0.02] transition-colors group">
+                              {/* Mockup Thumbnail */}
+                              <td className="p-3.5 pl-5">
+                                {item.image_url ? (
+                                  <div className="flex items-center gap-2">
+                                    <div
+                                      onClick={() =>
+                                        setPreviewModalImg({
+                                          url: item.image_url!,
+                                          title: `${item.size_label} inches — Room Mockup`,
+                                        })
+                                      }
+                                      className="relative w-16 h-12 rounded-lg border border-gold/30 bg-black overflow-hidden cursor-pointer group/th shrink-0 hover:border-gold transition-all shadow"
+                                      title="Click to preview room mockup"
+                                    >
+                                      <img
+                                        src={item.image_url}
+                                        alt={item.size_label}
+                                        className="w-full h-full object-cover group-hover/th:scale-110 transition-transform"
+                                      />
+                                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/th:opacity-100 transition-opacity flex items-center justify-center">
+                                        <Eye size={13} className="text-gold" />
+                                      </div>
+                                    </div>
+                                    <span className="text-[10px] text-green-400 font-medium">Uploaded</span>
+                                  </div>
+                                ) : (
+                                  <button
+                                    onClick={() => handleOpenEditFrameSize(item)}
+                                    className="px-2.5 py-1 rounded bg-white/5 hover:bg-gold/15 text-gray-400 hover:text-gold border border-white/10 hover:border-gold/40 text-[11px] transition-colors flex items-center gap-1.5"
+                                    title="Upload a room mockup image"
+                                  >
+                                    <Upload size={12} />
+                                    <span>Add Mockup</span>
+                                  </button>
+                                )}
+                              </td>
+
+                              {/* Size Dimensions */}
+                              <td className="p-3.5">
+                                <div className="font-mono font-bold text-gold text-base">
+                                  {item.size_label} <span className="text-xs text-gray-400 font-normal">inches</span>
+                                </div>
+                                {item.width && item.height && (
+                                  <div className="text-[11px] text-gray-500 mt-0.5">
+                                    {item.width}&quot; width × {item.height}&quot; height
+                                  </div>
+                                )}
+                              </td>
+
+                              {/* MRP */}
+                              <td className="p-3.5 text-gray-400">
+                                {item.mrp ? (
+                                  formatPrice(item.mrp)
+                                ) : (
+                                  <span className="text-gray-600">—</span>
+                                )}
+                              </td>
+
+                              {/* Offer Price */}
+                              <td className="p-3.5">
+                                <span className="font-heading font-bold text-white text-base">
+                                  {formatPrice(item.price)}
+                                </span>
+                              </td>
+
+                              {/* Status Toggle Switch */}
+                              <td className="p-3.5 text-center">
+                                <button
+                                  type="button"
+                                  onClick={() => handleToggleFrameStatus(item)}
+                                  className={`px-3 py-1 rounded-full text-[11px] font-semibold transition-all inline-flex items-center gap-1.5 ${
+                                    item.is_active
+                                      ? 'bg-green-500/15 text-green-400 border border-green-500/30 hover:bg-green-500/25'
+                                      : 'bg-red-500/15 text-red-400 border border-red-500/30 hover:bg-red-500/25'
+                                  }`}
+                                  title="Click to toggle store visibility"
+                                >
+                                  <span
+                                    className={`w-1.5 h-1.5 rounded-full ${
+                                      item.is_active ? 'bg-green-400' : 'bg-red-400'
+                                    }`}
+                                  />
+                                  <span>{item.is_active ? 'Active' : 'Disabled'}</span>
+                                </button>
+                              </td>
+
+                              {/* Action Buttons */}
+                              <td className="p-3.5 pr-5 text-right">
+                                <div className="flex items-center justify-end gap-2">
+                                  <button
+                                    onClick={() => handleOpenEditFrameSize(item)}
+                                    className="btn-gold !py-1 !px-3 text-xs flex items-center gap-1 shadow-sm"
+                                    title="Edit dimensions, price, and mockup image"
+                                  >
+                                    <Edit size={12} />
+                                    <span>Edit</span>
+                                  </button>
+                                  <button
+                                    onClick={() => setDeletingFrameSize(item)}
+                                    className="p-1.5 text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded transition-colors"
+                                    title="Delete frame size"
+                                  >
+                                    <Trash2 size={14} />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* Mobile Cards View */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:hidden">
+                    {filteredFrameSizes.map((item) => (
+                      <div
+                        key={item.id}
+                        className="card-premium p-4 border border-white/10 space-y-3 relative flex flex-col justify-between"
+                      >
+                        <div className="flex items-start gap-3">
+                          {/* Thumbnail */}
+                          {item.image_url ? (
+                            <div
+                              onClick={() =>
+                                setPreviewModalImg({
+                                  url: item.image_url!,
+                                  title: `${item.size_label} inches — Room Mockup`,
+                                })
+                              }
+                              className="relative w-20 h-16 rounded-lg border border-gold/30 bg-black overflow-hidden cursor-pointer shrink-0"
+                            >
+                              <img
+                                src={item.image_url}
+                                alt={item.size_label}
+                                className="w-full h-full object-cover"
+                              />
+                              <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
+                                <Eye size={12} className="text-gold" />
+                              </div>
+                            </div>
+                          ) : (
+                            <div
+                              onClick={() => handleOpenEditFrameSize(item)}
+                              className="w-20 h-16 rounded-lg border border-dashed border-white/20 bg-black/40 flex flex-col items-center justify-center text-gray-500 cursor-pointer shrink-0"
+                            >
+                              <Upload size={14} />
+                              <span className="text-[9px] mt-1">Upload</span>
+                            </div>
+                          )}
+
+                          <div className="flex-1 min-w-0">
+                            <div className="font-heading font-bold text-lg text-gold truncate">
+                              {item.size_label} <span className="text-xs text-gray-400 font-normal">in</span>
+                            </div>
+                            <div className="text-white font-bold text-base mt-0.5">
+                              {formatPrice(item.price)}
+                              {item.mrp && item.mrp > item.price && (
+                                <span className="text-xs text-gray-500 line-through ml-2 font-normal">
+                                  {formatPrice(item.mrp)}
+                                </span>
+                              )}
+                            </div>
+                            {item.width && item.height && (
+                              <div className="text-[10px] text-gray-500 mt-0.5">
+                                {item.width}&quot; × {item.height}&quot;
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Status & Actions */}
+                        <div className="pt-2 border-t border-white/5 flex items-center justify-between gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleToggleFrameStatus(item)}
+                            className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold flex items-center gap-1 ${
+                              item.is_active
+                                ? 'bg-green-500/15 text-green-400 border border-green-500/30'
+                                : 'bg-red-500/15 text-red-400 border border-red-500/30'
+                            }`}
+                          >
+                            <span
+                              className={`w-1.5 h-1.5 rounded-full ${
+                                item.is_active ? 'bg-green-400' : 'bg-red-400'
+                              }`}
+                            />
+                            <span>{item.is_active ? 'Active' : 'Disabled'}</span>
+                          </button>
+
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              onClick={() => handleOpenEditFrameSize(item)}
+                              className="btn-gold !py-1 !px-3 text-xs flex items-center gap-1"
+                            >
+                              <Edit size={12} />
+                              <span>Edit</span>
+                            </button>
+                            <button
+                              onClick={() => setDeletingFrameSize(item)}
+                              className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         )}
 
@@ -1379,6 +2038,17 @@ export default function AdminDashboardPage() {
                 />
               </div>
 
+              <div>
+                <label className="label-premium">Short Description / Vessel Label</label>
+                <input
+                  type="text"
+                  value={editingProduct.short_description || ''}
+                  onChange={(e) => setEditingProduct({ ...editingProduct, short_description: e.target.value })}
+                  className="input-premium text-xs"
+                  placeholder="e.g. Hand-Carved Rose Flower in Glass Tumbler"
+                />
+              </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="label-premium">Price (₹) *</label>
@@ -1578,46 +2248,510 @@ export default function AdminDashboardPage() {
         </div>
       )}
 
-      {/* ================= EDIT PRICE ITEM MODAL ================= */}
-      {editingPriceItem && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="card-premium p-6 max-w-sm w-full space-y-4 border border-gold/40">
-            <h3 className="font-heading font-bold text-base text-white">
-              Edit Price: {editingPriceItem.size_label} inches
-            </h3>
-            <form onSubmit={handleSavePriceItem} className="space-y-3 text-xs">
+      {/* ================= CREATE NEW FRAME SIZE MODAL ================= */}
+      {isNewFrameSizeModal && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+          <div className="card-premium p-6 sm:p-7 max-w-lg w-full space-y-5 border border-gold/40 shadow-2xl animate-in fade-in zoom-in-95 my-8">
+            <div className="flex justify-between items-center border-b border-white/10 pb-3">
               <div>
-                <label className="label-premium">Offer Price (₹)</label>
+                <span className="text-[10px] uppercase tracking-widest text-gold font-semibold">Storefront Setup</span>
+                <h3 className="font-heading font-bold text-lg text-white">Create New Frame Size</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsNewFrameSizeModal(false);
+                  setFrameMockupFile(null);
+                  setFrameMockupPreview(null);
+                  setFrameError(null);
+                }}
+                className="p-1.5 text-gray-400 hover:text-white"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {frameError && (
+              <div className="p-3 bg-red-500/15 border border-red-500/30 rounded-lg text-red-300 text-xs">
+                {frameError}
+              </div>
+            )}
+
+            <form onSubmit={(e) => handleSaveFrameSize(e, false)} className="space-y-4 text-xs">
+              {/* Dimensions */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="label-premium">Width (Inches)</label>
+                  <input
+                    type="number"
+                    step="any"
+                    required
+                    placeholder="e.g. 12"
+                    value={frameForm.width}
+                    onChange={(e) => {
+                      const w = e.target.value === '' ? '' : Number(e.target.value);
+                      const h = frameForm.height;
+                      setFrameForm((prev) => ({
+                        ...prev,
+                        width: w,
+                        size_label: w && h ? `${w} x ${h}` : prev.size_label,
+                      }));
+                    }}
+                    className="input-premium text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="label-premium">Height (Inches)</label>
+                  <input
+                    type="number"
+                    step="any"
+                    required
+                    placeholder="e.g. 18"
+                    value={frameForm.height}
+                    onChange={(e) => {
+                      const h = e.target.value === '' ? '' : Number(e.target.value);
+                      const w = frameForm.width;
+                      setFrameForm((prev) => ({
+                        ...prev,
+                        height: h,
+                        size_label: w && h ? `${w} x ${h}` : prev.size_label,
+                      }));
+                    }}
+                    className="input-premium text-xs"
+                  />
+                </div>
+              </div>
+
+              {/* Size Label */}
+              <div>
+                <label className="label-premium">Size Label (Inches)</label>
                 <input
-                  type="number"
+                  type="text"
                   required
-                  value={editingPriceItem.price}
-                  onChange={(e) => setEditingPriceItem({ ...editingPriceItem, price: Number(e.target.value) })}
-                  className="input-premium text-xs"
+                  placeholder="e.g. 12 x 18"
+                  value={frameForm.size_label}
+                  onChange={(e) => setFrameForm({ ...frameForm, size_label: e.target.value })}
+                  className="input-premium text-xs font-mono"
                 />
+                <span className="text-[10px] text-gray-500 mt-1 block">
+                  Displayed on product cards and price lists (e.g. &ldquo;12 x 18&rdquo;).
+                </span>
               </div>
+
+              {/* Pricing */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="label-premium">Offer Price (₹)</label>
+                  <input
+                    type="number"
+                    required
+                    min="0"
+                    placeholder="e.g. 800"
+                    value={frameForm.price}
+                    onChange={(e) => {
+                      const p = e.target.value === '' ? '' : Number(e.target.value);
+                      setFrameForm((prev) => ({
+                        ...prev,
+                        price: p,
+                        mrp: prev.mrp === '' && p !== '' ? Math.round(Number(p) * 1.4) : prev.mrp,
+                      }));
+                    }}
+                    className="input-premium text-xs font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="label-premium">MRP (₹, Optional)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    placeholder="e.g. 1100"
+                    value={frameForm.mrp}
+                    onChange={(e) => setFrameForm({ ...frameForm, mrp: e.target.value === '' ? '' : Number(e.target.value) })}
+                    className="input-premium text-xs"
+                  />
+                </div>
+              </div>
+
+              {/* Mockup Image Upload with Instant Preview */}
               <div>
-                <label className="label-premium">MRP (₹)</label>
+                <label className="label-premium">Room-Interior Mockup Image</label>
                 <input
-                  type="number"
-                  value={editingPriceItem.mrp || 0}
-                  onChange={(e) => setEditingPriceItem({ ...editingPriceItem, mrp: Number(e.target.value) })}
-                  className="input-premium text-xs"
+                  type="file"
+                  ref={frameFileInputRef}
+                  accept="image/jpeg,image/png,image/webp,image/avif"
+                  onChange={handleFrameMockupFileChange}
+                  className="hidden"
                 />
+
+                {frameMockupPreview ? (
+                  <div className="relative aspect-[4/3] rounded-lg border border-gold/40 bg-black overflow-hidden group">
+                    <img
+                      src={frameMockupPreview}
+                      alt="Mockup preview"
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => frameFileInputRef.current?.click()}
+                        className="btn-gold !py-1 !px-3 text-xs"
+                      >
+                        Change Photo
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleRemoveFrameMockup}
+                        className="btn-dark !py-1 !px-3 text-xs text-red-400"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                    <span className="absolute bottom-2 left-2 px-2 py-0.5 rounded text-[10px] bg-black/80 text-gold border border-gold/30">
+                      Preview before saving
+                    </span>
+                  </div>
+                ) : (
+                  <div
+                    onClick={() => frameFileInputRef.current?.click()}
+                    className="border-2 border-dashed border-white/20 hover:border-gold/50 rounded-lg p-6 text-center cursor-pointer bg-black/30 hover:bg-black/50 transition-all group"
+                  >
+                    <Upload size={24} className="text-gray-400 group-hover:text-gold mx-auto mb-2 transition-colors" />
+                    <p className="text-white font-medium text-xs">
+                      Click to upload mockup image from desktop or phone
+                    </p>
+                    <p className="text-[10px] text-gray-500 mt-1">
+                      JPG, PNG, WEBP up to 10MB • Recommended: high-resolution wall mockup
+                    </p>
+                  </div>
+                )}
               </div>
-              <div className="flex justify-end gap-2 pt-2">
+
+              {/* Status */}
+              <div className="flex items-center gap-2 pt-2">
+                <input
+                  type="checkbox"
+                  id="new_frame_active"
+                  checked={frameForm.is_active}
+                  onChange={(e) => setFrameForm({ ...frameForm, is_active: e.target.checked })}
+                  className="rounded border-white/20 text-gold focus:ring-gold bg-black"
+                />
+                <label htmlFor="new_frame_active" className="text-xs text-gray-300 cursor-pointer">
+                  Active (Immediately visible on public website)
+                </label>
+              </div>
+
+              {/* Actions */}
+              <div className="flex justify-end gap-2 pt-4 border-t border-white/5">
                 <button
                   type="button"
-                  onClick={() => setEditingPriceItem(null)}
-                  className="btn-dark !py-1.5 px-3 text-xs"
+                  onClick={() => setIsNewFrameSizeModal(false)}
+                  disabled={savingFrameSize}
+                  className="btn-dark !py-2 px-4 text-xs"
                 >
                   Cancel
                 </button>
-                <button type="submit" className="btn-gold !py-1.5 px-4 text-xs">
-                  Save Price
+                <button
+                  type="submit"
+                  disabled={savingFrameSize}
+                  className="btn-gold !py-2 px-6 text-xs flex items-center gap-1.5"
+                >
+                  {savingFrameSize ? (
+                    <>
+                      <RefreshCw size={13} className="animate-spin" />
+                      <span>Saving & Uploading...</span>
+                    </>
+                  ) : (
+                    <span>Save Frame Size</span>
+                  )}
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ================= EDIT FRAME SIZE & MOCKUP MODAL ================= */}
+      {editingPriceItem && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+          <div className="card-premium p-6 sm:p-7 max-w-lg w-full space-y-5 border border-gold/40 shadow-2xl animate-in fade-in zoom-in-95 my-8">
+            <div className="flex justify-between items-center border-b border-white/10 pb-3">
+              <div>
+                <span className="text-[10px] uppercase tracking-widest text-gold font-semibold">Edit Frame Size</span>
+                <h3 className="font-heading font-bold text-lg text-white">
+                  {editingPriceItem.size_label} inches
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingPriceItem(null);
+                  setFrameMockupFile(null);
+                  setFrameMockupPreview(null);
+                  setFrameError(null);
+                }}
+                className="p-1.5 text-gray-400 hover:text-white"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {frameError && (
+              <div className="p-3 bg-red-500/15 border border-red-500/30 rounded-lg text-red-300 text-xs">
+                {frameError}
+              </div>
+            )}
+
+            <form onSubmit={(e) => handleSaveFrameSize(e, true)} className="space-y-4 text-xs">
+              {/* Dimensions */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="label-premium">Width (Inches)</label>
+                  <input
+                    type="number"
+                    step="any"
+                    placeholder="e.g. 12"
+                    value={frameForm.width}
+                    onChange={(e) => setFrameForm({ ...frameForm, width: e.target.value === '' ? '' : Number(e.target.value) })}
+                    className="input-premium text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="label-premium">Height (Inches)</label>
+                  <input
+                    type="number"
+                    step="any"
+                    placeholder="e.g. 18"
+                    value={frameForm.height}
+                    onChange={(e) => setFrameForm({ ...frameForm, height: e.target.value === '' ? '' : Number(e.target.value) })}
+                    className="input-premium text-xs"
+                  />
+                </div>
+              </div>
+
+              {/* Size Label */}
+              <div>
+                <label className="label-premium">Size Label (Inches)</label>
+                <input
+                  type="text"
+                  required
+                  value={frameForm.size_label}
+                  onChange={(e) => setFrameForm({ ...frameForm, size_label: e.target.value })}
+                  className="input-premium text-xs font-mono font-bold"
+                />
+              </div>
+
+              {/* Pricing */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="label-premium">Offer Price (₹)</label>
+                  <input
+                    type="number"
+                    required
+                    min="0"
+                    value={frameForm.price}
+                    onChange={(e) => setFrameForm({ ...frameForm, price: e.target.value === '' ? '' : Number(e.target.value) })}
+                    className="input-premium text-xs font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="label-premium">MRP (₹)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={frameForm.mrp}
+                    onChange={(e) => setFrameForm({ ...frameForm, mrp: e.target.value === '' ? '' : Number(e.target.value) })}
+                    className="input-premium text-xs"
+                  />
+                </div>
+              </div>
+
+              {/* Mockup Image: Current and Replacement Options */}
+              <div className="space-y-2">
+                <label className="label-premium">Room-Interior Mockup Image</label>
+                <input
+                  type="file"
+                  ref={frameFileInputRef}
+                  accept="image/jpeg,image/png,image/webp,image/avif"
+                  onChange={handleFrameMockupFileChange}
+                  className="hidden"
+                />
+
+                {/* If user selected a new replacement file */}
+                {frameMockupPreview ? (
+                  <div className="relative aspect-[4/3] rounded-lg border-2 border-gold bg-black overflow-hidden group shadow-lg">
+                    <img
+                      src={frameMockupPreview}
+                      alt="Replacement mockup preview"
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => frameFileInputRef.current?.click()}
+                        className="btn-gold !py-1 !px-3 text-xs"
+                      >
+                        Choose Different
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFrameMockupFile(null);
+                          setFrameMockupPreview(null);
+                        }}
+                        className="btn-dark !py-1 !px-3 text-xs"
+                      >
+                        Keep Existing
+                      </button>
+                    </div>
+                    <span className="absolute top-2 left-2 px-2 py-0.5 rounded text-[10px] font-semibold bg-gold text-black">
+                      New Photo Selected (Saves on Submit)
+                    </span>
+                  </div>
+                ) : frameForm.image_url ? (
+                  /* Current persistent mockup image */
+                  <div className="relative aspect-[4/3] rounded-lg border border-gold/30 bg-black overflow-hidden group">
+                    <img
+                      src={frameForm.image_url}
+                      alt="Current mockup"
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-black/65 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => frameFileInputRef.current?.click()}
+                        className="btn-gold !py-1.5 !px-3 text-xs flex items-center gap-1 shadow"
+                      >
+                        <Upload size={12} /> Replace Photo
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setPreviewModalImg({
+                            url: frameForm.image_url,
+                            title: `${frameForm.size_label} inches — Room Mockup`,
+                          })
+                        }
+                        className="btn-dark !py-1.5 !px-3 text-xs flex items-center gap-1"
+                      >
+                        <Eye size={12} /> View Full
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleRemoveFrameMockup}
+                        className="btn-dark !py-1.5 !px-3 text-xs text-red-400 hover:text-red-300"
+                        title="Remove image from this size"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
+                    <span className="absolute bottom-2 left-2 px-2 py-0.5 rounded text-[10px] bg-black/80 text-green-400 border border-green-500/30">
+                      Current Room Mockup
+                    </span>
+                  </div>
+                ) : (
+                  /* No image currently uploaded */
+                  <div
+                    onClick={() => frameFileInputRef.current?.click()}
+                    className="border-2 border-dashed border-white/20 hover:border-gold/50 rounded-lg p-6 text-center cursor-pointer bg-black/30 hover:bg-black/50 transition-all group"
+                  >
+                    <Upload size={24} className="text-gray-400 group-hover:text-gold mx-auto mb-2 transition-colors" />
+                    <p className="text-white font-medium text-xs">
+                      No mockup uploaded yet. Click to select a photo.
+                    </p>
+                    <p className="text-[10px] text-gray-500 mt-1">
+                      Upload an interior wall mockup for this frame size
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Status */}
+              <div className="flex items-center gap-2 pt-2">
+                <input
+                  type="checkbox"
+                  id="edit_frame_active"
+                  checked={frameForm.is_active}
+                  onChange={(e) => setFrameForm({ ...frameForm, is_active: e.target.checked })}
+                  className="rounded border-white/20 text-gold focus:ring-gold bg-black"
+                />
+                <label htmlFor="edit_frame_active" className="text-xs text-gray-300 cursor-pointer">
+                  Active (Visible to customers on the storefront)
+                </label>
+              </div>
+
+              {/* Actions */}
+              <div className="flex justify-end gap-2 pt-4 border-t border-white/5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingPriceItem(null);
+                    setFrameMockupFile(null);
+                    setFrameMockupPreview(null);
+                  }}
+                  disabled={savingFrameSize}
+                  className="btn-dark !py-2 px-4 text-xs"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingFrameSize}
+                  className="btn-gold !py-2 px-6 text-xs flex items-center gap-1.5"
+                >
+                  {savingFrameSize ? (
+                    <>
+                      <RefreshCw size={13} className="animate-spin" />
+                      <span>Saving Changes...</span>
+                    </>
+                  ) : (
+                    <span>Save Changes</span>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ================= DELETE CONFIRMATION MODAL ================= */}
+      {deletingFrameSize && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="card-premium p-6 max-w-sm w-full space-y-4 border border-red-500/40 shadow-2xl animate-in fade-in zoom-in-95">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-red-500/15 border border-red-500/30 flex items-center justify-center text-red-400 shrink-0">
+                <Trash2 size={20} />
+              </div>
+              <div>
+                <h3 className="font-heading font-bold text-base text-white">Delete Frame Size</h3>
+                <p className="text-xs text-gray-400">Confirm permanent deletion</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-gray-300 leading-relaxed">
+              Are you sure you want to delete the frame size{' '}
+              <strong className="text-gold font-mono">{deletingFrameSize.size_label} inches</strong>{' '}
+              ({formatPrice(deletingFrameSize.price)})?
+            </p>
+            <p className="text-[11px] text-gray-500">
+              This will remove the size from the storefront and clean up its stored mockup photo.
+            </p>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-white/5">
+              <button
+                type="button"
+                onClick={() => setDeletingFrameSize(null)}
+                className="btn-dark !py-1.5 px-4 text-xs"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDeleteFrameSize}
+                className="btn-danger !py-1.5 px-4 text-xs bg-red-600 hover:bg-red-700 text-white rounded font-medium"
+              >
+                Delete Frame Size
+              </button>
+            </div>
           </div>
         </div>
       )}

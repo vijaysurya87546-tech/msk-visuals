@@ -197,11 +197,15 @@ CREATE TABLE price_list (
   height INT,
   price DECIMAL(10,2) NOT NULL DEFAULT 0,
   mrp DECIMAL(10,2) DEFAULT 0,
+  image_url TEXT,
   is_active BOOLEAN DEFAULT true,
   sort_order INT DEFAULT 0,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Migration statement for existing deployments:
+-- ALTER TABLE price_list ADD COLUMN IF NOT EXISTS image_url TEXT;
 
 -- =============================================
 -- 12. ORDER STATUS HISTORY
@@ -569,16 +573,32 @@ CREATE POLICY "Public upload review images" ON storage.objects FOR INSERT WITH C
 -- =============================================
 -- PROFILE AUTO-CREATE TRIGGER
 -- =============================================
-CREATE OR REPLACE FUNCTION handle_new_user()
-RETURNS TRIGGER AS $$
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
 BEGIN
-  INSERT INTO profiles (id, full_name, email)
-  VALUES (NEW.id, NEW.raw_user_meta_data->>'full_name', NEW.email);
+  INSERT INTO public.profiles (id, full_name, email, phone)
+  VALUES (
+    NEW.id,
+    COALESCE(NEW.raw_user_meta_data->>'full_name', ''),
+    NEW.email,
+    COALESCE(NEW.raw_user_meta_data->>'phone', '')
+  )
+  ON CONFLICT (id) DO NOTHING;
   RETURN NEW;
+EXCEPTION
+  WHEN OTHERS THEN
+    -- Prevent trigger errors from aborting user registration
+    RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$;
 
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW
-  EXECUTE FUNCTION handle_new_user();
+  EXECUTE FUNCTION public.handle_new_user();

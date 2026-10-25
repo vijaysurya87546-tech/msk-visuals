@@ -61,16 +61,6 @@ export async function updateSession(request: NextRequest) {
       }
     }
 
-    // Redirect disabled customer auth routes to /admin/login
-    if (
-      request.nextUrl.pathname === '/login' ||
-      request.nextUrl.pathname === '/register' ||
-      request.nextUrl.pathname.startsWith('/account')
-    ) {
-      const redirectUrl = request.nextUrl.clone();
-      redirectUrl.pathname = '/admin/login';
-      return NextResponse.redirect(redirectUrl);
-    }
   } catch (error) {
     console.error('Middleware session error:', error);
   }

@@ -87,10 +87,37 @@ function ShopContent() {
       // Category match
       if (selectedCategory !== 'all') {
         const cat = categories.find((c) => c.slug === selectedCategory || c.id === selectedCategory);
-        if (cat && p.category_id !== cat.id && (p as any).category?.slug !== selectedCategory) {
-          // Check if product's category matches or fallback
-          if (!p.name.toLowerCase().includes(cat.name.toLowerCase().split(' ')[0])) {
-            return false;
+        if (cat) {
+          const directMatch = p.category_id === cat.id || (p as any).category?.slug === cat.slug;
+          if (!directMatch) {
+            const catSlug = cat.slug.toLowerCase();
+            const pName = p.name.toLowerCase();
+            const pDesc = (p.description || '').toLowerCase();
+            const pSlug = (p.slug || '').toLowerCase();
+
+            if (catSlug === 'diy-candles' || catSlug === 'candle') {
+              if (!pName.includes('candle') && !pDesc.includes('candle') && !pSlug.includes('candle') && !pDesc.includes('wax') && p.category_id !== 'cat-8') {
+                return false;
+              }
+            } else if (catSlug === 'resin-art') {
+              if (!pName.includes('resin') && !pDesc.includes('resin') && p.category_id !== 'cat-7') {
+                return false;
+              }
+            } else if (catSlug.includes('frame')) {
+              if (!pName.includes('frame') && !pDesc.includes('frame')) {
+                return false;
+              }
+            } else if (catSlug === 'flex') {
+              if (!pName.includes('canvas') && !pName.includes('flex') && !pName.includes('banner') && p.category_id !== 'cat-9') {
+                return false;
+              }
+            } else if (catSlug === 'logo-design') {
+              if (!pName.includes('logo') && !pName.includes('brand') && p.category_id !== 'cat-10') {
+                return false;
+              }
+            } else if (!pName.includes(cat.name.toLowerCase().split(' ')[0])) {
+              return false;
+            }
           }
         }
       }

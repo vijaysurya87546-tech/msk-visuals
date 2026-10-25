@@ -279,6 +279,8 @@ export default function HomePage() {
                     ? '/flex'
                     : service.slug === 'gifts'
                     ? '/gifts'
+                    : service.slug === 'diy-candles'
+                    ? '/diy-candles'
                     : `/shop?category=${service.slug}`
                 }
                 className="card-premium p-6 text-center group"

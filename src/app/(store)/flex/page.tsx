@@ -23,9 +23,11 @@ import {
   FileText,
   PhoneCall,
   Sparkle,
+  Upload,
 } from 'lucide-react';
 import { BUSINESS } from '@/lib/constants';
 import { formatPrice } from '@/lib/utils';
+import QuickCustomFlexModal, { FlexCustomItem } from '@/components/flex/QuickCustomFlexModal';
 
 // All 36 sizes and prices exactly from the official MSK VISUALS Flex Price Card
 interface FlexPriceItem {
@@ -128,6 +130,7 @@ export default function FlexPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState<'all' | 'standard' | 'large' | 'mega'>('all');
   const [showImageModal, setShowImageModal] = useState(false);
+  const [customFlexItem, setCustomFlexItem] = useState<FlexCustomItem | null>(null);
 
   // Custom Quick Calculator State
   const [calcWidth, setCalcWidth] = useState<number>(10);
@@ -459,14 +462,36 @@ export default function FlexPage() {
                   </div>
                 </div>
 
-                <a
-                  href={`${BUSINESS.whatsappUrl}?text=${waOrderMsg}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-full py-1.5 px-2 rounded-lg bg-gold/10 hover:bg-gold text-gold hover:text-black text-[11px] font-semibold transition-colors flex items-center justify-center gap-1 border border-gold/25"
-                >
-                  <MessageCircle size={12} /> Order
-                </a>
+                <div className="flex items-center gap-1.5 w-full mt-auto">
+                  {/* Custom Order button on left */}
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setCustomFlexItem({
+                        size: item.size,
+                        sqft,
+                        price: item.price,
+                      })
+                    }
+                    className="flex-1 py-1.5 px-1 rounded-lg bg-white/5 hover:bg-gold/20 text-gold border border-gold/40 hover:border-gold text-[10px] sm:text-[11px] font-semibold transition-all flex items-center justify-center gap-1 shadow-sm active:scale-95"
+                    title="Upload artwork / photos & custom order this flex"
+                  >
+                    <Upload size={11} className="text-gold shrink-0" />
+                    <span>Custom</span>
+                  </button>
+
+                  {/* Direct WhatsApp Order button on right */}
+                  <a
+                    href={`${BUSINESS.whatsappUrl}?text=${waOrderMsg}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-1 py-1.5 px-1 rounded-lg bg-gold/15 hover:bg-gold text-gold hover:text-black text-[10px] sm:text-[11px] font-semibold transition-colors flex items-center justify-center gap-1 border border-gold/30 whitespace-nowrap active:scale-95"
+                    title="Order via WhatsApp"
+                  >
+                    <MessageCircle size={11} className="shrink-0" />
+                    <span>Order</span>
+                  </a>
+                </div>
               </div>
             );
           })}
@@ -616,14 +641,30 @@ export default function FlexPage() {
                 <div className="text-gold-gradient font-heading text-3xl font-extrabold my-1">
                   {formatPrice(calculatedPrice)}
                 </div>
-                <a
-                  href={`${BUSINESS.whatsappUrl}?text=${calcWhatsAppMessage}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="btn-whatsapp w-full !py-2.5 text-xs flex items-center justify-center gap-2 mt-3"
-                >
-                  <MessageCircle size={15} /> Order This Size on WhatsApp
-                </a>
+                <div className="flex flex-col sm:flex-row items-center gap-2 mt-3">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setCustomFlexItem({
+                        size: `${calcWidth}x${calcHeight}`,
+                        sqft: totalSqFt,
+                        price: calculatedPrice,
+                      })
+                    }
+                    className="w-full sm:flex-1 py-2.5 px-3 rounded-lg bg-white/5 hover:bg-gold/20 text-gold border border-gold/40 hover:border-gold text-xs font-semibold flex items-center justify-center gap-1.5 transition-all shadow-sm"
+                    title="Upload artwork & customize calculated flex"
+                  >
+                    <Upload size={14} /> Custom Order
+                  </button>
+                  <a
+                    href={`${BUSINESS.whatsappUrl}?text=${calcWhatsAppMessage}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn-whatsapp w-full sm:flex-1 !py-2.5 text-xs flex items-center justify-center gap-2"
+                  >
+                    <MessageCircle size={15} /> WhatsApp Order
+                  </a>
+                </div>
               </div>
             </div>
           </div>
@@ -788,6 +829,14 @@ export default function FlexPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Quick Custom Flex Modal */}
+      {customFlexItem && (
+        <QuickCustomFlexModal
+          item={customFlexItem}
+          onClose={() => setCustomFlexItem(null)}
+        />
       )}
     </div>
   );

@@ -10,6 +10,9 @@ import {
   ShieldCheck,
   Package,
   Layers,
+  Eye,
+  Frame,
+  X,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { formatPrice, generateWhatsAppUrl } from '@/lib/utils';
@@ -20,9 +23,24 @@ import type { PriceListItem } from '@/lib/types';
 export default function PriceListPage() {
   const [prices, setPrices] = useState<PriceListItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [previewMockup, setPreviewMockup] = useState<{ url: string; title: string } | null>(null);
 
   useEffect(() => {
     async function loadPrices() {
+      try {
+        const res = await fetch('/api/price-list');
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && json.data && json.data.length > 0) {
+            setPrices(json.data);
+            setLoading(false);
+            return;
+          }
+        }
+      } catch (e) {
+        console.warn('API fetch failed, falling back to direct query:', e);
+      }
+
       const supabase = createClient();
       const { data, error } = await supabase
         .from('price_list')
@@ -139,6 +157,7 @@ export default function PriceListPage() {
               <thead>
                 <tr className="border-b border-white/5 bg-[#111111] text-[11px] uppercase tracking-wider text-gray-400">
                   <th className="py-3.5 px-6">Size (Inches)</th>
+                  <th className="py-3.5 px-4 text-center">Mockup</th>
                   <th className="py-3.5 px-6">Category</th>
                   <th className="py-3.5 px-6">MRP</th>
                   <th className="py-3.5 px-6">Special Offer Price</th>
@@ -159,6 +178,27 @@ export default function PriceListPage() {
                       <td className="py-4 px-6 font-semibold text-white group-hover:text-gold flex items-center gap-2">
                         <span className="text-gold font-mono text-sm">{item.size_label}</span>
                         <span className="text-xs text-gray-500 font-normal">inches</span>
+                      </td>
+                      <td className="py-4 px-4 text-center">
+                        {item.image_url ? (
+                          <button
+                            type="button"
+                            onClick={() => setPreviewMockup({ url: item.image_url!, title: `${item.size_label} inches — Room Mockup` })}
+                            className="relative w-12 h-9 rounded border border-gold/30 overflow-hidden group/th hover:border-gold transition-all shadow mx-auto block"
+                            title="Click to view room mockup"
+                          >
+                            <img
+                              src={item.image_url}
+                              alt={`${item.size_label} inches mockup`}
+                              className="w-full h-full object-cover group-hover/th:scale-110 transition-transform"
+                            />
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/th:opacity-100 transition-opacity flex items-center justify-center">
+                              <Eye size={11} className="text-gold" />
+                            </div>
+                          </button>
+                        ) : (
+                          <span className="text-[10px] text-gray-600 italic">Custom</span>
+                        )}
                       </td>
                       <td className="py-4 px-6">
                         <span className="text-[11px] bg-white/5 border border-white/10 px-2.5 py-0.5 rounded text-gray-300">
@@ -199,6 +239,50 @@ export default function PriceListPage() {
           </div>
         )}
       </div>
+
+      {/* Lightbox Modal for Mockup Preview */}
+      {previewMockup && (
+        <div
+          className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4"
+          onClick={() => setPreviewMockup(null)}
+        >
+          <div
+            className="card-premium p-4 max-w-3xl w-full border border-gold/40 space-y-3 relative shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center pb-2 border-b border-white/10">
+              <div className="flex items-center gap-2">
+                <Frame size={16} className="text-gold" />
+                <h3 className="font-heading font-bold text-base text-white">
+                  {previewMockup.title}
+                </h3>
+              </div>
+              <button
+                onClick={() => setPreviewMockup(null)}
+                className="p-1.5 text-gray-400 hover:text-white rounded-lg hover:bg-white/10"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="aspect-[4/3] w-full bg-black rounded-lg overflow-hidden border border-white/10">
+              <img
+                src={previewMockup.url}
+                alt={previewMockup.title}
+                className="w-full h-full object-contain"
+              />
+            </div>
+            <div className="flex justify-between items-center text-xs text-gray-400 pt-1">
+              <span>Studio visual preview</span>
+              <button
+                onClick={() => setPreviewMockup(null)}
+                className="btn-gold !py-1 !px-4 text-xs"
+              >
+                Close Preview
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Custom Size CTA */}
       <div className="card-premium p-8 mt-12 text-center bg-gradient-to-r from-black-deep via-[#141414] to-black-deep border border-gold/30">
