@@ -139,16 +139,10 @@ export default function HomePage() {
           </p>
 
           {/* CTA Buttons */}
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 animate-fade-in-up delay-400">
+          <div className="flex items-center justify-center animate-fade-in-up delay-400">
             <Link href="/shop" className="btn-gold text-sm px-10 py-3.5">
               Shop Now
               <ArrowRight size={16} />
-            </Link>
-            <Link
-              href="/custom-orders"
-              className="btn-gold-outline text-sm px-10 py-3.5"
-            >
-              Custom Order
             </Link>
           </div>
 
