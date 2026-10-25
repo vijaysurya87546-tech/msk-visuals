@@ -1,16 +1,14 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
+import { normalizeSupabaseUrl, getSupabaseAnonKey } from './client';
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
     request,
   });
 
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  const isConfigured = Boolean(
-    url && key && url.startsWith('http') && !url.includes('your_supabase_project_url')
-  );
+  const url = normalizeSupabaseUrl(process.env.NEXT_PUBLIC_SUPABASE_URL);
+  const key = getSupabaseAnonKey(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
 
   // Check admin session from cookies (must be a valid signed token)
   const adminCookie = request.cookies.get('msk_admin_session')?.value;
@@ -18,18 +16,8 @@ export async function updateSession(request: NextRequest) {
   const isAdminPath = request.nextUrl.pathname.startsWith('/admin');
   const isAdminLogin = request.nextUrl.pathname === '/admin/login';
 
-  if (!isConfigured) {
-    // In fallback mode, check simple admin cookie
-    if (isAdminPath && !isAdminLogin && !isValidSession) {
-      const redirectUrl = request.nextUrl.clone();
-      redirectUrl.pathname = '/admin/login';
-      return NextResponse.redirect(redirectUrl);
-    }
-    return supabaseResponse;
-  }
-
   try {
-    const supabase = createServerClient(url!, key!, {
+    const supabase = createServerClient(url, key, {
       cookies: {
         getAll() {
           return request.cookies.getAll();
