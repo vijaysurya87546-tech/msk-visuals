@@ -1,4 +1,5 @@
 import { createServerClient } from '@supabase/ssr';
+import { createClient as createSupabaseJsClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 import { normalizeSupabaseUrl, getSupabaseAnonKey } from './client';
 
@@ -41,36 +42,18 @@ export async function createClient() {
   });
 }
 
+/**
+ * Superuser Admin Supabase client with service_role permissions.
+ * Completely bypasses Row Level Security (RLS) for server routes, orders, uploads, and admin tasks.
+ */
 export async function createAdminClient() {
   const url = normalizeSupabaseUrl(process.env.NEXT_PUBLIC_SUPABASE_URL);
   const key = getSupabaseServiceRoleKey(process.env.SUPABASE_SERVICE_ROLE_KEY);
 
-  try {
-    const cookieStore = await cookies();
-    return createServerClient(url, key, {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll();
-        },
-        setAll(cookiesToSet) {
-          try {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options)
-            );
-          } catch {
-            // Ignored
-          }
-        },
-      },
-    });
-  } catch {
-    return createServerClient(url, key, {
-      cookies: {
-        getAll() {
-          return [];
-        },
-        setAll() {},
-      },
-    });
-  }
+  return createSupabaseJsClient(url, key, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+  });
 }
