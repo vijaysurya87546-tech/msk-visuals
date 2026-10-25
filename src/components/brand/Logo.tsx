@@ -40,7 +40,7 @@ export default function Logo({
         )}
       >
         <img
-          src="/logo.jpeg"
+          src="/logo-v2.jpeg?v=2"
           alt="MSK VISUALS Official Logo - Wolf Emblem"
           className="w-full h-full object-cover transition-transform duration-300"
         />

@@ -50,8 +50,8 @@ export default function RootLayout({
     <html lang="en" className="dark">
       <head>
         <link rel="canonical" href={process.env.NEXT_PUBLIC_SITE_URL || "https://mskvisuals.com"} />
-        <link rel="icon" type="image/jpeg" href="/logo.jpeg" />
-        <link rel="apple-touch-icon" href="/logo.jpeg" />
+        <link rel="icon" type="image/jpeg" href="/logo-v2.jpeg?v=2" />
+        <link rel="apple-touch-icon" href="/logo-v2.jpeg?v=2" />
         <meta name="theme-color" content="#0A0A0A" />
       </head>
       <body className="bg-black-deep text-gray-200 antialiased min-h-screen">
