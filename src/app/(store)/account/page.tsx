@@ -17,6 +17,8 @@ import {
   Truck,
   ArrowRight,
   Calendar,
+  Sparkles,
+  Palette,
 } from 'lucide-react';
 import Logo from '@/components/brand/Logo';
 import { createClient } from '@/lib/supabase/client';
@@ -163,19 +165,43 @@ export default function AccountPage() {
 
   const getStatusBadge = (status: string) => {
     const s = status?.toLowerCase() || '';
-    if (s.includes('delivered')) {
+    if (s.includes('deliver') || s.includes('complete')) {
       return (
         <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-950/60 text-emerald-400 border border-emerald-500/30">
           <CheckCircle size={12} />
-          Delivered
+          {status || 'Completed'}
         </span>
       );
     }
     if (s.includes('shipped') || s.includes('dispatch')) {
       return (
-        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-blue-950/60 text-blue-400 border border-blue-500/30">
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-cyan-950/60 text-cyan-400 border border-cyan-500/30">
           <Truck size={12} />
           Shipped
+        </span>
+      );
+    }
+    if (s.includes('design')) {
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-purple-950/70 text-purple-300 border border-purple-500/40">
+          <Sparkles size={12} className="text-purple-400" />
+          Designing Artwork
+        </span>
+      );
+    }
+    if (s.includes('print')) {
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-indigo-950/70 text-indigo-300 border border-indigo-500/40">
+          <Package size={12} className="text-indigo-400" />
+          Printing in Progress
+        </span>
+      );
+    }
+    if (s.includes('review')) {
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-blue-950/60 text-blue-300 border border-blue-500/30">
+          <Clock size={12} className="text-blue-400" />
+          Reviewing Details
         </span>
       );
     }
@@ -184,6 +210,14 @@ export default function AccountPage() {
         <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-amber-950/60 text-amber-400 border border-amber-500/30">
           <Clock size={12} />
           In Production
+        </span>
+      );
+    }
+    if (s.includes('cancel')) {
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-red-950/60 text-red-400 border border-red-500/30">
+          <AlertCircle size={12} />
+          Cancelled
         </span>
       );
     }

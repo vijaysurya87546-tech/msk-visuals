@@ -56,13 +56,63 @@ export async function PATCH(req: NextRequest) {
     const supabaseAdmin = await createAdminClient();
 
     if (action === 'update_order_status') {
-      const { order_id, status } = params;
+      const { order_id, status, is_custom } = params;
+
+      if (is_custom || (typeof order_id === 'string' && order_id.startsWith('MSK-CUST-'))) {
+        let { data, error } = await supabaseAdmin
+          .from('custom_orders')
+          .update({ status, updated_at: new Date().toISOString() })
+          .eq('custom_order_id', order_id)
+          .select()
+          .maybeSingle();
+
+        if (!data) {
+          const res2 = await supabaseAdmin
+            .from('custom_orders')
+            .update({ status, updated_at: new Date().toISOString() })
+            .eq('id', order_id)
+            .select()
+            .maybeSingle();
+          data = res2.data;
+          error = res2.error;
+        }
+
+        if (error) throw error;
+        return NextResponse.json({ success: true, data });
+      }
+
       const { data, error } = await supabaseAdmin
         .from('orders')
         .update({ status, updated_at: new Date().toISOString() })
         .eq('order_id', order_id)
         .select()
-        .single();
+        .maybeSingle();
+
+      if (error) throw error;
+      return NextResponse.json({ success: true, data });
+    }
+
+    if (action === 'update_custom_order_status') {
+      const { id, custom_order_id, status } = params;
+      const targetId = custom_order_id || id;
+      let { data, error } = await supabaseAdmin
+        .from('custom_orders')
+        .update({ status, updated_at: new Date().toISOString() })
+        .eq('custom_order_id', targetId)
+        .select()
+        .maybeSingle();
+
+      if (!data) {
+        const fallbackId = id || targetId;
+        const res2 = await supabaseAdmin
+          .from('custom_orders')
+          .update({ status, updated_at: new Date().toISOString() })
+          .eq('id', fallbackId)
+          .select()
+          .maybeSingle();
+        data = res2.data;
+        error = res2.error;
+      }
 
       if (error) throw error;
       return NextResponse.json({ success: true, data });

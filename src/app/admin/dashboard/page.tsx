@@ -77,6 +77,7 @@ export default function AdminDashboardPage() {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [previewModalImg, setPreviewModalImg] = useState<{ url: string; title: string } | null>(null);
   const [downloadingUrl, setDownloadingUrl] = useState<string | null>(null);
+  const [updatingCustomOrderId, setUpdatingCustomOrderId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Frame Sizes & Mockups Management State
@@ -221,6 +222,59 @@ export default function AdminDashboardPage() {
       });
     } catch (e) {
       console.error('Failed to update order status:', e);
+    }
+  };
+
+  // Custom Order Status Updates (Persists to database & customer dashboard)
+  const handleUpdateCustomOrderStatus = async (customOrderId: string, id: string, newStatus: string) => {
+    const prevOrders = [...customOrders];
+    // 1. Optimistic UI update
+    setCustomOrders((prev) =>
+      prev.map((c) =>
+        c.custom_order_id === customOrderId || c.id === id ? { ...c, status: newStatus } : c
+      )
+    );
+    setUpdatingCustomOrderId(customOrderId || id);
+
+    try {
+      // 2. Persist to Supabase custom_orders table via /api/admin/orders
+      const res = await fetch('/api/admin/orders', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          order_id: customOrderId || id,
+          id: id,
+          custom_order_id: customOrderId,
+          is_custom: true,
+          status: newStatus,
+        }),
+      });
+
+      const resJson = await res.json().catch(() => ({}));
+      if (!res.ok || !resJson.success) {
+        // Fallback to /api/admin/data
+        const fallbackRes = await fetch('/api/admin/data', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'update_custom_order_status',
+            custom_order_id: customOrderId,
+            id: id,
+            status: newStatus,
+          }),
+        });
+        const fallbackJson = await fallbackRes.json().catch(() => ({}));
+        if (!fallbackRes.ok || !fallbackJson.success) {
+          throw new Error(fallbackJson.error || resJson.error || 'Failed to update custom order status');
+        }
+      }
+    } catch (e: any) {
+      console.error('Failed to update custom order status:', e);
+      // Revert if network error
+      setCustomOrders(prevOrders);
+      alert(`Could not save status: ${e.message || 'Please check connection'}`);
+    } finally {
+      setUpdatingCustomOrderId(null);
     }
   };
 
@@ -1641,18 +1695,20 @@ export default function AdminDashboardPage() {
                     <div className="flex items-center gap-2">
                       <select
                         value={cust.status}
+                        disabled={updatingCustomOrderId === (cust.custom_order_id || cust.id)}
                         onChange={(e) => {
                           const newSt = e.target.value;
-                          setCustomOrders((prev) =>
-                            prev.map((c) => (c.id === cust.id ? { ...c, status: newSt } : c))
-                          );
+                          handleUpdateCustomOrderStatus(cust.custom_order_id, cust.id, newSt);
                         }}
-                        className={`text-xs px-2.5 py-1 rounded border outline-none font-semibold ${getStatusColor(cust.status)} bg-[#161616]`}
+                        className={`text-xs px-2.5 py-1 rounded border outline-none font-semibold ${getStatusColor(cust.status)} bg-[#161616] cursor-pointer disabled:opacity-50`}
                       >
                         {['Pending', 'Reviewing', 'Designing', 'Printing', 'Shipped', 'Completed'].map((s) => (
                           <option key={s} value={s}>{s}</option>
                         ))}
                       </select>
+                      {updatingCustomOrderId === (cust.custom_order_id || cust.id) && (
+                        <div className="w-3.5 h-3.5 border-2 border-gold border-t-transparent rounded-full animate-spin" />
+                      )}
                       <a
                         href={generateWhatsAppUrl(`Hello ${cust.name}, this is MSK VISUALS regarding your custom design request ${cust.custom_order_id}.`)}
                         target="_blank"
