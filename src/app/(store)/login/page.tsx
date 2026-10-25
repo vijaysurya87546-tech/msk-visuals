@@ -68,34 +68,40 @@ function LoginContent() {
     setLoginLoading(true);
 
     try {
-      // 1. Check if these are Admin credentials
-      const adminRes = await fetch('/api/admin-auth', {
+      // 1. Authenticate via server-side endpoint (handles admin & customer sessions reliably)
+      const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: loginEmail, password: loginPassword }),
       });
-      const adminData = await adminRes.json();
+      const data = await res.json();
 
-      if (adminRes.ok && adminData.success) {
+      if (!res.ok || !data.success) {
+        setLoginError(data.error || 'Invalid email or password. Please check your credentials.');
+        return;
+      }
+
+      if (data.role === 'admin') {
         router.push('/admin/dashboard');
         return;
       }
 
-      // 2. Otherwise try Supabase customer sign-in
-      const supabase = createClient();
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: loginEmail,
-        password: loginPassword,
-      });
-
-      if (error) {
-        setLoginError(error.message || 'Invalid email or password.');
-      } else if (data?.user) {
-        router.push(redirectTo);
+      // Also ensure client-side session is refreshed
+      try {
+        const supabase = createClient();
+        await supabase.auth.signInWithPassword({
+          email: loginEmail,
+          password: loginPassword,
+        });
+      } catch {
+        // Ignored if handled on server
       }
+
+      router.push(redirectTo);
+      router.refresh();
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Login failed. Please check credentials.';
-      setLoginError(message);
+      console.error('Login error:', err);
+      setLoginError('Unable to connect to the server. Please check your internet connection and try again.');
     } finally {
       setLoginLoading(false);
     }
