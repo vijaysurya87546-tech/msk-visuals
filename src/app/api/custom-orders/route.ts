@@ -7,6 +7,7 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     const {
+      user_id,
       name,
       phone,
       email,
@@ -42,6 +43,7 @@ export async function POST(request: Request) {
       .from('custom_orders')
       .insert({
         custom_order_id: customOrderId,
+        user_id: user_id || null,
         name,
         phone,
         email: email || null,

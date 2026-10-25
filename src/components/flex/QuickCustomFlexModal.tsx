@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   X,
   Upload,
@@ -16,6 +16,7 @@ import {
 import { formatPrice, generateWhatsAppUrl } from '@/lib/utils';
 import { BUSINESS } from '@/lib/constants';
 import Link from 'next/link';
+import { createClient } from '@/lib/supabase/client';
 
 export interface FlexCustomItem {
   size: string; // e.g. "8x3"
@@ -45,10 +46,28 @@ export default function QuickCustomFlexModal({ item, onClose }: QuickCustomFlexM
 
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
   const [customText, setCustomText] = useState('');
   const [deliveryCity, setDeliveryCity] = useState('Madurai');
   const [selectedMaterial, setSelectedMaterial] = useState('standard');
   const [selectedFinishing, setSelectedFinishing] = useState('eyelets');
+
+  useEffect(() => {
+    try {
+      const supabase = createClient();
+      supabase.auth.getUser().then(({ data: { user } }) => {
+        if (user) {
+          setUserId(user.id);
+          setUserEmail(user.email || null);
+          if (user.user_metadata?.full_name) setName(user.user_metadata.full_name);
+          if (user.user_metadata?.phone) setPhone(user.user_metadata.phone);
+        }
+      });
+    } catch {
+      // Ignored
+    }
+  }, []);
 
   // Artwork / Photo upload
   const [photoFile, setPhotoFile] = useState<File | null>(null);
@@ -152,9 +171,10 @@ export default function QuickCustomFlexModal({ item, onClose }: QuickCustomFlexM
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          user_id: userId || null,
           name: name.trim(),
           phone: phone.trim(),
-          email: null,
+          email: userEmail || null,
           product_type: 'Flex',
           frame_size: `${item.size} ft (${sqft} sq.ft)`,
           quantity: 1,

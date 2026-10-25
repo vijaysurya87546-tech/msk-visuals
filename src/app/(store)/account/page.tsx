@@ -5,16 +5,17 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   User,
-  Package,
-  LogOut,
   ShoppingBag,
-  Mail,
-  Phone,
+  Package,
   Clock,
   CheckCircle,
+  AlertCircle,
+  Mail,
+  Phone,
+  LogOut,
+  LogIn,
   Truck,
   ArrowRight,
-  Shield,
   Calendar,
 } from 'lucide-react';
 import Logo from '@/components/brand/Logo';
@@ -24,12 +25,19 @@ import AuthModal from '@/components/auth/AuthModal';
 interface OrderItem {
   id: string;
   order_id: string;
-  customer_name: string;
-  customer_email: string;
+  is_custom?: boolean;
+  customer_name?: string;
+  customer_email?: string;
+  customer_phone?: string;
+  product_type?: string;
+  frame_size?: string;
+  customization_details?: string;
+  delivery_address?: string;
   total: number;
   status: string;
   created_at: string;
   payment_method?: string;
+  files?: Array<{ file_url: string; file_name?: string }>;
 }
 
 export default function AccountPage() {
@@ -54,15 +62,18 @@ export default function AccountPage() {
       if (currentUser) {
         setOrdersLoading(true);
         try {
-          // Fetch orders by user_id or customer_email
-          const { data: userOrders } = await supabase
-            .from('orders')
-            .select('*')
-            .or(`user_id.eq.${currentUser.id},customer_email.eq.${currentUser.email}`)
-            .order('created_at', { ascending: false });
+          const phone = currentUser.user_metadata?.phone || '';
+          const queryParams = new URLSearchParams({
+            userId: currentUser.id,
+            email: currentUser.email || '',
+            phone,
+          });
 
-          if (userOrders) {
-            setOrders(userOrders as OrderItem[]);
+          const res = await fetch(`/api/account/orders?${queryParams.toString()}`);
+          const json = await res.json();
+
+          if (json.success && Array.isArray(json.orders)) {
+            setOrders(json.orders as OrderItem[]);
           }
         } catch (err) {
           console.warn('Could not load orders:', err);
@@ -118,14 +129,16 @@ export default function AccountPage() {
           <p className="text-gray-400 text-xs mb-6">
             Sign in to view your orders, saved details, and custom frame requests.
           </p>
+
           <button
             onClick={() => setIsAuthOpen(true)}
-            className="btn-gold w-full flex items-center justify-center gap-2 cursor-pointer !py-3 !rounded-xl"
+            className="btn-gold w-full text-xs py-3 flex items-center justify-center gap-2 cursor-pointer shadow-lg"
           >
-            <span>Sign In to Your Account</span>
-            <ArrowRight size={14} />
+            <LogIn size={14} />
+            <span>Sign In to Account</span>
           </button>
-          <div className="mt-4 pt-4 border-t border-white/10 flex justify-between text-xs text-gray-500">
+
+          <div className="mt-6 pt-4 border-t border-white/10 flex items-center justify-between text-xs text-gray-500">
             <Link href="/shop" className="hover:text-gold transition-colors">
               Continue Shopping
             </Link>
@@ -249,7 +262,7 @@ export default function AccountPage() {
         {ordersLoading ? (
           <div className="p-12 text-center bg-[#121212] border border-white/10 rounded-2xl">
             <div className="w-6 h-6 border-2 border-gold border-t-transparent rounded-full animate-spin mx-auto mb-2" />
-            <p className="text-xs text-gray-400">Loading your orders...</p>
+            <p className="text-xs text-gray-400">Loading your orders &amp; creations...</p>
           </div>
         ) : orders.length === 0 ? (
           <div className="p-12 text-center bg-[#121212] border border-white/10 rounded-3xl">
@@ -260,7 +273,7 @@ export default function AccountPage() {
               No orders yet
             </h3>
             <p className="text-xs text-gray-400 max-w-sm mx-auto mb-6">
-              When you order custom photo frames, resin art, or gifts from MSK Visuals, your order tracking will appear right here.
+              When you order custom photo frames, flex prints, resin art, or gifts from MSK Visuals, your order tracking will appear right here.
             </p>
             <Link href="/shop" className="btn-gold !py-2.5 !px-6 text-xs inline-flex items-center gap-2">
               <span>Browse Catalog</span>
@@ -268,62 +281,136 @@ export default function AccountPage() {
             </Link>
           </div>
         ) : (
-          <div className="space-y-3">
-            {orders.map((order) => (
-              <div
-                key={order.id || order.order_id}
-                className="bg-[#141414] border border-white/10 hover:border-gold/30 rounded-2xl p-5 transition-all shadow-md"
-              >
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-white/5">
-                  <div>
-                    <span className="text-[10px] uppercase font-bold text-gray-500 tracking-wider">
-                      Order ID
-                    </span>
-                    <p className="text-sm font-bold text-gold font-mono">
-                      #{order.order_id}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="text-left sm:text-right">
-                      <span className="text-[10px] uppercase font-bold text-gray-500 tracking-wider">
-                        Date Placed
-                      </span>
-                      <p className="text-xs text-gray-300 flex items-center gap-1">
-                        <Calendar size={12} className="text-gray-500" />
-                        {new Date(order.created_at).toLocaleDateString('en-IN', {
-                          day: 'numeric',
-                          month: 'short',
-                          year: 'numeric',
-                        })}
-                      </p>
-                    </div>
-                    {getStatusBadge(order.status)}
-                  </div>
-                </div>
+          <div className="space-y-4">
+            {orders.map((order) => {
+              const primaryPhoto = order.files && order.files.length > 0 ? order.files[0].file_url : null;
+              const waText = encodeURIComponent(
+                `Hello MSK VISUALS,\nI would like an update on my order #${order.order_id} (${order.product_type || 'Custom Order'}).`
+              );
+              const waUrl = `https://wa.me/919361253338?text=${waText}`;
 
-                <div className="pt-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div>
-                    <span className="text-[11px] text-gray-400">
-                      Payment: {order.payment_method || 'Cash on Delivery'}
-                    </span>
+              return (
+                <div
+                  key={order.id || order.order_id}
+                  className="bg-[#141414] border border-white/10 hover:border-gold/30 rounded-2xl p-5 transition-all shadow-md"
+                >
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-white/5">
+                    <div className="flex items-center gap-3">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] uppercase font-bold text-gray-500 tracking-wider">
+                            Order ID
+                          </span>
+                          {order.is_custom ? (
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                              Custom {order.product_type || 'Creation'}
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500/15 text-blue-300 border border-blue-500/30">
+                              Catalog Order
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-sm font-bold text-gold font-mono mt-0.5">
+                          #{order.order_id}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <div className="text-left sm:text-right">
+                        <span className="text-[10px] uppercase font-bold text-gray-500 tracking-wider">
+                          Date Placed
+                        </span>
+                        <p className="text-xs text-gray-300 flex items-center gap-1">
+                          <Calendar size={12} className="text-gray-500" />
+                          {new Date(order.created_at).toLocaleDateString('en-IN', {
+                            day: 'numeric',
+                            month: 'short',
+                            year: 'numeric',
+                          })}
+                        </p>
+                      </div>
+                      {getStatusBadge(order.status)}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-4">
-                    <div className="text-right">
-                      <span className="text-xs text-gray-400">Total: </span>
-                      <span className="text-base font-bold text-gold">
-                        ₹{Number(order.total).toLocaleString('en-IN')}
+
+                  {/* Order Details / Custom Item Preview */}
+                  <div className="py-3.5 flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                    {primaryPhoto && (
+                      <a
+                        href={primaryPhoto}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="relative w-16 h-16 rounded-xl overflow-hidden border border-gold/30 bg-black flex-shrink-0 group cursor-pointer"
+                        title="Click to view full uploaded photo"
+                      >
+                        <img
+                          src={primaryPhoto}
+                          alt="Order uploaded artwork"
+                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                        />
+                      </a>
+                    )}
+
+                    <div className="flex-1 min-w-0">
+                      {order.frame_size && (
+                        <p className="text-sm font-bold text-white">
+                          {order.product_type || 'Custom Item'} &bull; <span className="text-gold">{order.frame_size}</span>
+                        </p>
+                      )}
+                      {order.customization_details && (
+                        <p className="text-xs text-gray-400 mt-1 line-clamp-2">
+                          {order.customization_details}
+                        </p>
+                      )}
+                      {order.delivery_address && (
+                        <p className="text-[11px] text-gray-500 mt-1">
+                          Delivery: {order.delivery_address}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="pt-3 border-t border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <span className="text-[11px] text-gray-400">
+                        Payment: {order.payment_method || 'Pay on Confirmation'}
                       </span>
                     </div>
-                    <Link
-                      href={`/order-confirmation/${order.order_id}`}
-                      className="px-3 py-1.5 rounded-lg border border-white/15 hover:border-gold/50 text-gray-300 hover:text-gold text-xs font-semibold transition-colors"
-                    >
-                      View Receipt
-                    </Link>
+                    <div className="flex items-center gap-3">
+                      {order.total > 0 && (
+                        <div className="text-right">
+                          <span className="text-xs text-gray-400">Total: </span>
+                          <span className="text-base font-bold text-gold">
+                            ₹{Number(order.total).toLocaleString('en-IN')}
+                          </span>
+                        </div>
+                      )}
+
+                      <a
+                        href={waUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-3 py-1.5 rounded-lg border border-emerald-500/40 bg-emerald-950/20 hover:bg-emerald-950/40 text-emerald-400 text-xs font-semibold transition-colors flex items-center gap-1.5"
+                      >
+                        <Truck size={13} />
+                        <span>WhatsApp Proofing</span>
+                      </a>
+
+                      {!order.is_custom && (
+                        <Link
+                          href={`/order-confirmation/${order.order_id}`}
+                          className="px-3 py-1.5 rounded-lg border border-white/15 hover:border-gold/50 text-gray-300 hover:text-gold text-xs font-semibold transition-colors"
+                        >
+                          View Receipt
+                        </Link>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

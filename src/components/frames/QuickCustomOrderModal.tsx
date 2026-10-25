@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   X,
   Upload,
@@ -16,6 +16,7 @@ import type { PriceListItem } from '@/lib/types';
 import { formatPrice, generateWhatsAppUrl } from '@/lib/utils';
 import { BUSINESS } from '@/lib/constants';
 import Link from 'next/link';
+import { createClient } from '@/lib/supabase/client';
 
 interface QuickCustomOrderModalProps {
   item: PriceListItem;
@@ -34,9 +35,27 @@ export default function QuickCustomOrderModal({ item, onClose }: QuickCustomOrde
 
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
   const [customText, setCustomText] = useState('');
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [selectedFinish, setSelectedFinish] = useState('matte_black');
+
+  useEffect(() => {
+    try {
+      const supabase = createClient();
+      supabase.auth.getUser().then(({ data: { user } }) => {
+        if (user) {
+          setUserId(user.id);
+          setUserEmail(user.email || null);
+          if (user.user_metadata?.full_name) setName(user.user_metadata.full_name);
+          if (user.user_metadata?.phone) setPhone(user.user_metadata.phone);
+        }
+      });
+    } catch {
+      // Ignored
+    }
+  }, []);
 
   // Photo upload
   const [photoFile, setPhotoFile] = useState<File | null>(null);
@@ -129,9 +148,10 @@ export default function QuickCustomOrderModal({ item, onClose }: QuickCustomOrde
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          user_id: userId || null,
           name: name.trim(),
           phone: phone.trim(),
-          email: null,
+          email: userEmail || null,
           product_type: 'Photo Frames',
           frame_size: `${item.size_label} inches`,
           quantity: 1,
