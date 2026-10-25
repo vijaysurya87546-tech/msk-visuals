@@ -16,7 +16,7 @@ const sizeMap = {
   md: { class: 'w-12 h-12' },
   lg: { class: 'w-16 h-16' },
   xl: { class: 'w-24 h-24' },
-  hero: { class: 'w-36 h-36 sm:w-48 sm:h-48 md:w-56 md:h-56' },
+  hero: { class: 'w-44 h-44 sm:w-56 sm:h-56 md:w-64 md:h-64' },
 };
 
 export default function Logo({
@@ -42,7 +42,7 @@ export default function Logo({
         <img
           src="/logo.jpeg"
           alt="MSK VISUALS Official Logo - Wolf Emblem"
-          className="w-full h-full object-cover scale-[1.3] transition-transform duration-300"
+          className="w-full h-full object-cover transition-transform duration-300"
         />
       </div>
 
