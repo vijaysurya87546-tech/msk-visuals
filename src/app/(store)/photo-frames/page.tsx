@@ -58,8 +58,9 @@ export default function PhotoFramesPage() {
           setProducts(frameProducts.length > 0 ? frameProducts : INITIAL_PRODUCTS.slice(0, 8));
         }
 
+        let rawPrices: PriceListItem[] = [];
         if (priceApiRes?.success && priceApiRes.data && priceApiRes.data.length > 0) {
-          setPrices(priceApiRes.data);
+          rawPrices = priceApiRes.data;
         } else {
           // Fallback to supabase direct query or initial list
           const { data: directPrices } = await supabase
@@ -67,8 +68,19 @@ export default function PhotoFramesPage() {
             .select('*')
             .eq('is_active', true)
             .order('sort_order');
-          setPrices(directPrices && directPrices.length > 0 ? directPrices : INITIAL_PRICE_LIST);
+          rawPrices = directPrices && directPrices.length > 0 ? directPrices : INITIAL_PRICE_LIST;
         }
+
+        // Always ensure image_url is populated with uploaded mockup
+        const enrichedPrices = rawPrices.map((item) => {
+          const fallback = INITIAL_PRICE_LIST.find((init) => init.size_label === item.size_label || init.id === item.id);
+          return {
+            ...item,
+            image_url: item.image_url || fallback?.image_url || null,
+          };
+        });
+
+        setPrices(enrichedPrices);
       } catch (err) {
         console.error('Failed to load photo frames data:', err);
         setProducts(INITIAL_PRODUCTS.filter((p) => p.name.toLowerCase().includes('frame')));

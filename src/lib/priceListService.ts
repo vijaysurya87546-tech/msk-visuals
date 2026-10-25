@@ -113,12 +113,15 @@ export async function getFrameSizes(options?: { activeOnly?: boolean; useAdmin?:
         : INITIAL_PRICE_LIST) as PriceListItem[];
     }
 
-    // Merge mockups from site_settings if not already present on record
+    // Merge mockups from site_settings or INITIAL_PRICE_LIST if not already present on record
     return items.map((item) => {
+      const fallbackItem = INITIAL_PRICE_LIST.find(
+        (init) => init.size_label === item.size_label || init.id === item.id
+      );
       const imageFromMap = mockupMap[item.id] || mockupMap[item.size_label] || null;
       return {
         ...item,
-        image_url: item.image_url || imageFromMap || null,
+        image_url: item.image_url || imageFromMap || fallbackItem?.image_url || null,
       };
     });
   } catch (err) {

@@ -32,7 +32,14 @@ export default function PriceListPage() {
         if (res.ok) {
           const json = await res.json();
           if (json.success && json.data && json.data.length > 0) {
-            setPrices(json.data);
+            const enriched = json.data.map((item: PriceListItem) => {
+              const fallback = INITIAL_PRICE_LIST.find((init) => init.size_label === item.size_label || init.id === item.id);
+              return {
+                ...item,
+                image_url: item.image_url || fallback?.image_url || null,
+              };
+            });
+            setPrices(enriched);
             setLoading(false);
             return;
           }
@@ -48,11 +55,16 @@ export default function PriceListPage() {
         .eq('is_active', true)
         .order('sort_order', { ascending: true });
 
-      if (data && data.length > 0) {
-        setPrices(data);
-      } else {
-        setPrices(INITIAL_PRICE_LIST);
-      }
+      const raw = data && data.length > 0 ? data : INITIAL_PRICE_LIST;
+      const enriched = raw.map((item) => {
+        const fallback = INITIAL_PRICE_LIST.find((init) => init.size_label === item.size_label || init.id === item.id);
+        return {
+          ...item,
+          image_url: item.image_url || fallback?.image_url || null,
+        };
+      });
+
+      setPrices(enriched);
       setLoading(false);
     }
     loadPrices();
